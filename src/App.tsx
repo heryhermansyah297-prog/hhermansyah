@@ -301,18 +301,16 @@ export default function App() {
               <div className="w-3.5 h-3.5 bg-white rotate-45"></div>
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base font-bold tracking-tight text-white">SheetSync.io</span>
-                <span className="text-zinc-750 hidden sm:inline">|</span>
-                <h1 className="text-xs font-semibold tracking-tight text-zinc-350 hidden sm:inline">Heavy Equipment Service Tracker</h1>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h1 className="text-xs font-bold tracking-tight text-white sm:text-lg uppercase">Heavy Equipment Service Tracker</h1>
                 {scriptUrl ? (
                   <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/22 text-emerald-400">Live</span>
                 ) : (
                   <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded-full bg-zinc-800 border border-[#27272A] text-zinc-400">Demo</span>
                 )}
               </div>
-              <p className="text-[10px] text-zinc-500 mt-0.5 font-medium">
-                Memonitor Kondisi Sektor & Mekanik secara Real-time
+              <p className="text-[10px] text-amber-500 mt-0.5 font-bold uppercase tracking-wider">
+                REAL TIME MONITORING - UNIQUIP CABANG PALANGKARAYA (KALIMANTAN TENGAH)
               </p>
             </div>
           </div>
@@ -961,7 +959,7 @@ export default function App() {
       {/* FOOTER */}
       <footer className="border-t border-[#27272A] py-4 bg-[#09090B] mt-6 text-center text-[11px] text-zinc-500 font-medium tracking-wide">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <p>© {new Date().getFullYear()} SheetSync.io / Heavy Equipment Service Tracker. Built and fully dynamic from Google Sheets.</p>
+          <p>© {new Date().getFullYear()} Heavy Equipment Service Tracker Uniquip Cabang Palangkaraya (Kalimantan Tengah)</p>
         </div>
       </footer>
 
