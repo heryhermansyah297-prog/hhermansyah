@@ -1,0 +1,6 @@
+{
+  "name": "Heavy Equipment Service Dashboard",
+  "description": "Dashboard interaktif untuk memonitor status Service Request (SR), status pengerjaan, kondisi unit, dan integrasi Google Sheets via Google Apps Script.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
