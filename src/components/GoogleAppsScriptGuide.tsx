@@ -250,8 +250,9 @@ function doPost(e) {
         </div>
         <div>
           <h2 className="text-xl font-bold tracking-tight text-white font-sans">Hubungkan dengan Google Sheets Anda</h2>
-          <p className="text-xs text-zinc-400 mt-1">
-            Konfigurasikan integrasi nyata dengan Google Apps Script secara real-time.
+          <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
+            Untuk menyambungkan dashboard ini ke file spreadsheet target Anda secara dua arah (Baca & Tulis), 
+            Anda harus menambahkan kode Apps Script ke file tersebut sehingga browser memiliki izin akses keamanan.
           </p>
         </div>
       </div>
@@ -317,16 +318,16 @@ function doPost(e) {
               1
             </span>
             <div className="flex-1">
-              <p className="font-semibold text-white">Unduh Data Sebagai Template</p>
+              <p className="font-semibold text-white">Sesuaikan Format Kolom target Anda</p>
               <p className="text-zinc-400 text-xs mt-1 leading-relaxed">
-                Unduh file CSV data ini, lalu impor atau salin langsung ke Google Sheets Anda agar struktur kolomnya pas.
+                Google Sheet target harus memiliki 1 baris pertama yang berisi nama-nama kolom/header (ex: SR Number, WO, Status). Anda bisa mengunduh file CSV di bawah dan menyalin baris pertamanya ke Sheet Anda agar struktur kolomnya bisa dibaca otomatis.
               </p>
               <button
                 onClick={handleDownloadCSV}
                 className="mt-3 inline-flex items-center space-x-2 px-3.5 py-2 bg-[#09090B] border border-[#27272A] hover:bg-zinc-800 hover:text-white transition rounded-xl text-xs font-semibold text-zinc-200 cursor-pointer"
               >
                 <FileDown className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Unduh Template CSV (Sesuai Gambar)</span>
+                <span>Unduh Format Template CSV</span>
               </button>
             </div>
           </div>
@@ -337,9 +338,10 @@ function doPost(e) {
               2
             </span>
             <div className="flex-1">
-              <p className="font-semibold text-white">Tambahkan Script ke Google Sheet Anda</p>
+              <p className="font-semibold text-white">Tambahkan Script ke Google Sheet Target Anda</p>
               <p className="text-zinc-400 text-xs mt-1 leading-relaxed">
-                Buka Google Sheets, klik menu <span className="font-mono bg-[#09090B] border border-[#27272A] px-1.5 py-0.5 rounded text-blue-400">Extensions (Ekstensi)</span> → <span className="font-mono bg-[#09090B] border border-[#27272A] px-1.5 py-0.5 rounded text-blue-400">Apps Script</span>. Hapus kode default dan tempelkan kode di bawah ini:
+                Buka file Google Sheet yang ingin disinkronisasi: <a href="https://docs.google.com/spreadsheets/d/1k1ydWIDJGOzwQhNh-sfc5odySSqudJtX_SGWnisl2yY/edit" target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 underline underline-offset-2">1k1ydWIDJGOzwQ...</a> <br/>
+                Lalu dari menu atas, klik <span className="font-mono bg-[#09090B] border border-[#27272A] px-1.5 py-0.5 rounded text-blue-400">Extensions (Ekstensi)</span> → <span className="font-mono bg-[#09090B] border border-[#27272A] px-1.5 py-0.5 rounded text-blue-400">Apps Script</span>. Hapus kode default (jika ada), lalu <strong>salin dan tempelkan kode di bawah ini</strong>:
               </p>
 
               <div className="relative mt-4 group">
