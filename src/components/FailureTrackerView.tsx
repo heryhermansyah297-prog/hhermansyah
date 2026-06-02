@@ -26,7 +26,7 @@ import {
 import { FailureInformation } from '../types';
 import { INITIAL_FAILURE_INFORMATIONS } from '../data/mockData';
 
-export default function FailureTrackerView() {
+export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }) {
   // --- States ---
   const [fiList, setFiList] = useState<FailureInformation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -178,34 +178,67 @@ export default function FailureTrackerView() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteItem = (id: string, number: string) => {
+  const handleDeleteItem = async (id: string, number: string) => {
     if (window.confirm(`Hapus entri Failure Information ${number}?`)) {
       const updated = fiList.filter(item => item.id !== id);
       saveToStorage(updated);
+      
+      if (scriptUrl) {
+        try {
+          // Sending only what's needed for matching, including the distinct identifier fiNumber
+          await fetch(scriptUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'delete', type: 'failure_information', data: { id, fiNumber: number } })
+          });
+        } catch (err) {
+          console.error("Failed to sync delete to Google Sheets", err);
+        }
+      }
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customer || !formData.fiNumber) {
       alert('Nama Customer dan FI Number harus diisi!');
       return;
     }
 
+    let itemToSync: FailureInformation;
+
     if (editingItem) {
       // Edit
+      itemToSync = { ...editingItem, ...formData };
       const updated = fiList.map(item =>
-        item.id === editingItem.id ? { ...item, ...formData } : item
+        item.id === editingItem.id ? itemToSync : item
       );
       saveToStorage(updated);
     } else {
       // Add
-      const newItem: FailureInformation = {
+      itemToSync = {
         id: 'fi-' + Date.now(),
         ...formData
       };
-      saveToStorage([newItem, ...fiList]);
+      saveToStorage([itemToSync, ...fiList]);
     }
+    
+    if (scriptUrl) {
+      try {
+        await fetch(scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ 
+            action: editingItem ? 'update' : 'add', 
+            type: 'failure_information',
+            data: itemToSync 
+          })
+        });
+      } catch (err) {
+        console.error("Failed to sync change to Google Sheets", err);
+      }
+    }
+    
     setIsModalOpen(false);
   };
 

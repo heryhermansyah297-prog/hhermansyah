@@ -109,6 +109,8 @@ export default function GoogleAppsScriptGuide({
 
 function mapHeaderToKey(header) {
   var h = header.toLowerCase().replace(/[^a-z0-9]/g, "");
+  
+  // Service Request
   if (h === "srnumber" || h === "nomorsr") return "srNumber";
   if (h === "wonumber" || h === "nomorwo") return "woNumber";
   if (h === "uc3number" || h === "uc3no") return "uc3Number";
@@ -127,15 +129,51 @@ function mapHeaderToKey(header) {
   if (h === "labour2" || h === "mekanik2" || h === "labourdua") return "labour2";
   if (h === "status") return "status";
   if (h === "leadjobdescription" || h === "deskripsikerja" || h === "leadjob") return "leadJobDescription";
+
+  // Failure Information
+  if (h === "customer" || h === "pelanggan") return "customer";
+  if (h === "finumber" || h === "nomorfi") return "fiNumber";
+  if (h === "fidate" || h === "tanggalfi") return "fiDate";
+  if (h === "fiaging" || h === "fiagingdays") return "fiAging";
+  if (h === "fistatus" || h === "statusfi") return "fiStatus";
+  if (h === "partstatus" || h === "statuspart") return "partStatus";
+  if (h === "planningprogress" || h === "progressplanning") return "planningProgress";
+  if (h === "evidentpm" || h === "evident") return "evidentPm";
+  if (h === "createby" || h === "dibuatoleh") return "createBy";
+  
   return null;
 }
 
 function doPost(e) {
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
     var postData = JSON.parse(e.postData.contents);
     var action = postData.action;
     var payload = postData.data;
+    var type = postData.type; // can be 'service_request' or 'failure_information'
+
+    var sheets = ss.getSheets();
+    var sheet = ss.getActiveSheet(); // default
+
+    // Smart Sheet Detection
+    // If it's a failure information payload, look for a sheet with 'FI NUMBER' header
+    // If service request, look for 'SR NUMBER' or 'WO NUMBER'
+    for (var s = 0; s < sheets.length; s++) {
+       var sHeaders = sheets[s].getDataRange().getValues()[0] || [];
+       var sHeadersStr = sHeaders.join('').toUpperCase();
+       
+       if (payload && payload.fiNumber !== undefined) {
+         if (sHeadersStr.indexOf('FI NUMBER') > -1) {
+            sheet = sheets[s];
+            break;
+         }
+       } else {
+         if (sHeadersStr.indexOf('SR NUMBER') > -1 || sHeadersStr.indexOf('WO NUMBER') > -1) {
+            sheet = sheets[s];
+            break;
+         }
+       }
+    }
 
     var rows = sheet.getDataRange().getValues();
     var headers = rows[0].map(function(h) { return h.toString().trim(); });
@@ -146,7 +184,7 @@ function doPost(e) {
       for (var j = 0; j < headers.length; j++) {
         var key = mapHeaderToKey(headers[j]);
         if (key) {
-           rowData[j] = item[key] || "";
+           rowData[j] = item[key] !== undefined ? item[key] : "";
         } else {
            rowData[j] = "";
         }
@@ -163,16 +201,41 @@ function doPost(e) {
     // For update / delete, we find by ID (simulated by row index)
     if (action === 'update' || action === 'delete') {
        var id = parseInt(payload.id);
-       if (!isNaN(id) && id >= 1 && id < rows.length) {
-         if (action === 'delete') {
-            sheet.deleteRow(id + 1); // 1-based, +1 for header
-         } else {
-            var updatedRow = getOrderedRowData(payload);
-            var range = sheet.getRange(id + 1, 1, 1, headers.length);
-            range.setValues([updatedRow]);
-         }
+       // Instead of relying on payload.id (since our random IDs are strings like "fi-1234"),
+       // we should find the actual row by comparing the ID column if it exists, or SR NUMBER / FI NUMBER!
+       var targetRowIdx = -1;
+       var keyToMatch = payload.fiNumber ? payload.fiNumber : payload.srNumber;
+       var headerKeyIdx = -1;
+
+       // Find the column index for FI NUMBER or SR NUMBER
+       for (var k=0; k<headers.length; k++) {
+           var hMapped = mapHeaderToKey(headers[k]);
+           if (hMapped === "fiNumber" || hMapped === "srNumber") {
+               headerKeyIdx = k; break;
+           }
        }
-       return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
+
+       if (headerKeyIdx > -1) {
+           // Find matching row
+           for (var r=1; r<rows.length; r++) {
+               if (rows[r][headerKeyIdx] == keyToMatch) {
+                   targetRowIdx = r; break;
+               }
+           }
+       }
+
+       if (targetRowIdx > -1) {
+           if (action === 'delete') {
+               sheet.deleteRow(targetRowIdx + 1); // 1-based, +1 for header
+           } else {
+               var updatedRow = getOrderedRowData(payload);
+               var range = sheet.getRange(targetRowIdx + 1, 1, 1, headers.length);
+               range.setValues([updatedRow]);
+           }
+           return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
+       } else {
+           return ContentService.createTextOutput(JSON.stringify({ status: 'not_found', msg: 'Bisa jadi baris tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
+       }
     }
     
     return ContentService.createTextOutput(JSON.stringify({ status: 'invalid_action' })).setMimeType(ContentService.MimeType.JSON);

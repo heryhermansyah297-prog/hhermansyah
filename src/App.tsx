@@ -250,7 +250,7 @@ export default function App() {
         await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: reqData.id ? 'update' : 'add', data: freshData })
+          body: JSON.stringify({ action: reqData.id ? 'update' : 'add', type: 'service_request', data: freshData })
         });
       } catch (err) {
         console.error("Failed to sync structural change to Google Sheets", err);
@@ -258,7 +258,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteRequest = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteRequest = async (id: string, srNumber: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Apakah Anda yakin ingin menghapus Service Request ini?')) {
       const updated = requests.filter(r => r.id !== id);
@@ -270,7 +270,7 @@ export default function App() {
           await fetch(scriptUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'delete', data: { id } })
+            body: JSON.stringify({ action: 'delete', type: 'service_request', data: { id, srNumber } })
           });
         } catch (err) {
           console.error("Failed to sync delete to Google Sheets", err);
@@ -832,7 +832,7 @@ export default function App() {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={(e) => handleDeleteRequest(req.id, e)}
+                                      onClick={(e) => handleDeleteRequest(req.id, req.srNumber, e)}
                                       className="p-1 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition cursor-pointer"
                                       title="Hapus baris ini secara permanen"
                                     >
@@ -960,7 +960,7 @@ export default function App() {
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.25 }}
             >
-              <FailureTrackerView />
+              <FailureTrackerView scriptUrl={scriptUrl} />
             </motion.div>
           )}
 
