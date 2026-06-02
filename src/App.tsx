@@ -62,7 +62,9 @@ export default function App() {
     return trimmed;
   };
 
-  const [scriptUrl, setScriptUrl] = useState<string>('');
+  // If you want to use the deployed GAS as default, set it here. 
+  const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwS75B4D0b8pG9lmvqqv6UkltCo9QWp8R50KGfZ60r6NXLRsJ5Vg7M78QRWnsGOcfnl/exec';
+  const [scriptUrl, setScriptUrl] = useState<string>(DEFAULT_SCRIPT_URL);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'table' | 'guide' | 'failure' | 'surattugas'>('table');
   const [showCharts, setShowCharts] = useState<boolean>(true);
@@ -81,6 +83,19 @@ export default function App() {
 
   // Load from localstorage on initialization
   useEffect(() => {
+    let initialUrl = DEFAULT_SCRIPT_URL;
+    const savedUrl = localStorage.getItem('gs_script_url');
+    if (savedUrl && savedUrl !== '') {
+      initialUrl = savedUrl;
+      setScriptUrl(savedUrl);
+    }
+    
+    // Sync automatically on start if we have a URL
+    if (initialUrl) {
+      handleSyncWithGoogleAppScript(initialUrl).catch(e => console.error("Initial load sync failed:", e));
+    }
+    
+    // As fallback load from storage
     const savedRequests = localStorage.getItem('service_requests');
     if (savedRequests) {
       try {
@@ -102,10 +117,6 @@ export default function App() {
       setRequests(INITIAL_SERVICE_REQUESTS);
     }
 
-    const savedUrl = localStorage.getItem('gs_script_url');
-    if (savedUrl) {
-      setScriptUrl(savedUrl);
-    }
   }, []);
 
   // Save requests to localstorage whenever it changes
@@ -214,28 +225,57 @@ export default function App() {
     }
   };
 
-  // --- Local modifications ---
-  const handleSaveRequest = (reqData: Omit<ServiceRequest, 'id'> & { id?: string }) => {
+  // --- Local & Remote modifications ---
+  const handleSaveRequest = async (reqData: Omit<ServiceRequest, 'id'> & { id?: string }) => {
+    let freshData: ServiceRequest;
+    
     if (reqData.id) {
       // Edit mode
-      const updated = requests.map(r => r.id === reqData.id ? { ...r, ...reqData } as ServiceRequest : r);
+      freshData = { ...reqData } as ServiceRequest;
+      const updated = requests.map(r => r.id === reqData.id ? freshData : r);
       saveRequestsToStateAndStorage(updated);
     } else {
       // Add mode
-      const fresh: ServiceRequest = {
+      freshData = {
         ...reqData,
         id: Date.now().toString()
-      };
-      const updated = [fresh, ...requests];
+      } as ServiceRequest;
+      const updated = [freshData, ...requests];
       saveRequestsToStateAndStorage(updated);
+    }
+
+    // Push to Google Apps Script if sync is active
+    if (scriptUrl) {
+      try {
+        await fetch(scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: reqData.id ? 'update' : 'add', data: freshData })
+        });
+      } catch (err) {
+        console.error("Failed to sync structural change to Google Sheets", err);
+      }
     }
   };
 
-  const handleDeleteRequest = (id: string, e: React.MouseEvent) => {
+  const handleDeleteRequest = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Apakah Anda yakin ingin menghapus Service Request ini?')) {
       const updated = requests.filter(r => r.id !== id);
       saveRequestsToStateAndStorage(updated);
+      
+      // Push delete event to Google Apps Script
+      if (scriptUrl) {
+        try {
+          await fetch(scriptUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'delete', data: { id } })
+          });
+        } catch (err) {
+          console.error("Failed to sync delete to Google Sheets", err);
+        }
+      }
     }
   };
 

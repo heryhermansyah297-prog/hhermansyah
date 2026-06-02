@@ -128,6 +128,58 @@ function mapHeaderToKey(header) {
   if (h === "status") return "status";
   if (h === "leadjobdescription" || h === "deskripsikerja" || h === "leadjob") return "leadJobDescription";
   return null;
+}
+
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var postData = JSON.parse(e.postData.contents);
+    var action = postData.action;
+    var payload = postData.data;
+
+    var rows = sheet.getDataRange().getValues();
+    var headers = rows[0].map(function(h) { return h.toString().trim(); });
+
+    // Function to get writing columns order
+    function getOrderedRowData(item) {
+      var rowData = new Array(headers.length);
+      for (var j = 0; j < headers.length; j++) {
+        var key = mapHeaderToKey(headers[j]);
+        if (key) {
+           rowData[j] = item[key] || "";
+        } else {
+           rowData[j] = "";
+        }
+      }
+      return rowData;
+    }
+
+    if (action === 'add') {
+       var newRow = getOrderedRowData(payload);
+       sheet.appendRow(newRow);
+       return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
+    } 
+    
+    // For update / delete, we find by ID (simulated by row index)
+    if (action === 'update' || action === 'delete') {
+       var id = parseInt(payload.id);
+       if (!isNaN(id) && id >= 1 && id < rows.length) {
+         if (action === 'delete') {
+            sheet.deleteRow(id + 1); // 1-based, +1 for header
+         } else {
+            var updatedRow = getOrderedRowData(payload);
+            var range = sheet.getRange(id + 1, 1, 1, headers.length);
+            range.setValues([updatedRow]);
+         }
+       }
+       return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: 'invalid_action' })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
 }`;
 
   const copyToClipboard = () => {
