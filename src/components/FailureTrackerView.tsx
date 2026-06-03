@@ -50,8 +50,7 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
     planningProgress: ''
   });
 
-  // Load Initial Data from LocalStorage/Mock Data
-  useEffect(() => {
+  const loadData = () => {
     const saved = localStorage.getItem('failure_informations');
     if (saved) {
       try {
@@ -62,6 +61,19 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
     } else {
       setFiList(INITIAL_FAILURE_INFORMATIONS);
     }
+  };
+
+  // Load Initial Data from LocalStorage/Mock Data
+  useEffect(() => {
+    loadData();
+
+    // Listen to sync events from App.tsx
+    const handleFiSync = () => {
+      loadData();
+    };
+    
+    window.addEventListener('fiDataUpdated', handleFiSync);
+    return () => window.removeEventListener('fiDataUpdated', handleFiSync);
   }, []);
 
   const saveToStorage = (newList: FailureInformation[]) => {
@@ -247,15 +259,15 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       alert('Tidak ada data untuk diekspor!');
       return;
     }
-    const headers = ['CUSTOMER', 'FI NUMBER', 'FI DATE', 'FI STATUS', 'PART STATUS', 'PLANNING PROGRESS', 'FI AGING', 'EVIDENT PM', 'CREATE BY'];
+    const headers = ['CUSTOMER', 'FI NUMBER', 'FI DATE', 'FI AGING (DAYS)', 'FI STATUS', 'PART STATUS', 'PLANNING PROGRESS', 'EVIDENT PM', 'CREATE BY'];
     const rows = filteredList.map(item => [
       item.customer,
       item.fiNumber,
       item.fiDate,
+      item.fiAging || '',
       item.fiStatus,
       item.partStatus || 'Waiting Part',
       item.planningProgress || '',
-      item.fiAging || '',
       item.evidentPm || '',
       item.createBy
     ]);
@@ -536,7 +548,7 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
                 <th className="px-3 py-2.5">PART STATUS</th>
                 <th className="px-3 py-2.5">PLANNING PROGRESS</th>
                 <th className="px-3 py-2.5 text-center">EVIDENT PM</th>
-                <th className="px-3 py-2.5">CREATED BY</th>
+                <th className="px-3 py-2.5">CREATE BY</th>
                 <th className="px-3 py-2.5 text-right w-20">ACTION</th>
               </tr>
             </thead>

@@ -167,18 +167,42 @@ export default function App() {
   const handleSyncWithGoogleAppScript = async (url: string) => {
     setIsSyncing(true);
     try {
-      const response = await fetch(url);
+      const fetchUrl = url + (url.includes('?') ? '&' : '?') + 'type=all&v=' + Date.now();
+      const response = await fetch(fetchUrl);
       if (!response.ok) {
         throw new Error(`Koneksi gagal dengan status: ${response.status}`);
       }
       
-      const rawData = await response.json();
-      if (!Array.isArray(rawData)) {
-        throw new Error('Format data tidak valid! Apps Script harus mengembalikan Array.');
+      let rawData;
+      try {
+        const textData = await response.text();
+        if (textData.trim().startsWith('<')) {
+          throw new Error("Script mengembalikan halaman Web/HTML, bukan data JSON. Pastikan saat deploy Apps Script, pilih 'Who has access: Anyone' (Siapa saja) dan URL yang dimasukkan berakhiran /exec.");
+        }
+        rawData = JSON.parse(textData);
+      } catch (e: any) {
+        if (e.message.includes("Script mengembalikan")) {
+          throw e; // rethrow the specific HTML error
+        }
+        throw new Error(`Gagal memparsing data JSON. Pastikan Web App diset ke Anyone. Detail: ${e.message}`);
+      }
+      
+      let srData: any[] = [];
+      
+      if (Array.isArray(rawData)) {
+        srData = rawData;
+      } else if (rawData && typeof rawData === 'object') {
+        if (rawData.serviceRequests) srData = rawData.serviceRequests;
+        if (rawData.failureInformations) {
+          localStorage.setItem('failure_informations', JSON.stringify(rawData.failureInformations));
+          window.dispatchEvent(new Event('fiDataUpdated'));
+        }
+      } else {
+        throw new Error('Format data tidak valid!');
       }
 
       // Map rawData to guarantee id presence
-      const sanitized: ServiceRequest[] = rawData.map((item: any, idx: number) => ({
+      const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
         id: item.id || (idx + 1).toString(),
         srNumber: item.srNumber || '',
         woNumber: item.woNumber || '',
@@ -208,7 +232,7 @@ export default function App() {
       saveRequestsToStateAndStorage(sanitized);
       setScriptUrl(url);
       localStorage.setItem('gs_script_url', url);
-      alert(`Berhasil menyinkronkan ${sanitized.length} baris data dari Google Sheet! 🎉`);
+      alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n(Service Requests: ${sanitized.length}, Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0})`);
     } catch (err: any) {
       console.error('Apps script error:', err);
       throw new Error(`Data Apps Script gagal di-fetch. ${err.message || ''}`);

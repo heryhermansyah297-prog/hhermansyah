@@ -45,65 +45,64 @@ export default function GoogleAppsScriptGuide({
   };
 
   const scriptCode = `function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var rows = sheet.getDataRange().getValues();
-  var data = [];
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var result = {
+    serviceRequests: [],
+    failureInformations: []
+  };
   
-  if (rows.length <= 1) {
-    return ContentService.createTextOutput(JSON.stringify([]))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  // Ambil header dari baris pertama
-  var headers = rows[0].map(function(h) {
-    return h.toString().trim();
-  });
-  
-  for (var i = 1; i < rows.length; i++) {
-    var row = rows[i];
-    var item = { id: i.toString() };
+  for (var s = 0; s < sheets.length; s++) {
+    var sheet = sheets[s];
+    var rows = sheet.getDataRange().getValues();
+    if (rows.length <= 1) continue;
     
-    for (var j = 0; j < headers.length; j++) {
-      var header = headers[j];
-      var val = row[j];
+    var headers = rows[0].map(function(h) {
+      return h.toString().trim();
+    });
+    
+    var headersStr = headers.join('').toUpperCase();
+    var isFailureInfo = headersStr.indexOf('FI NUMBER') > -1;
+    var isServiceRequest = headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('WO NUMBER') > -1;
+    
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i];
+      var item = { id: i.toString() };
       
-      // Format tanggal ke String standar YYYY-MM-DD
-      if (val instanceof Date) {
-        val = Utilities.formatDate(val, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
+      for (var j = 0; j < headers.length; j++) {
+        var header = headers[j];
+        var val = row[j];
+        
+        // Format tanggal ke String standar YYYY-MM-DD
+        if (val instanceof Date) {
+          val = Utilities.formatDate(val, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
+        }
+        
+        var key = mapHeaderToKey(header);
+        if (key) {
+          item[key] = val;
+        }
       }
       
-      var key = mapHeaderToKey(header);
-      if (key) {
-        item[key] = val;
+      if (isFailureInfo && item.fiNumber) {
+        result.failureInformations.push(item);
+      } else if (isServiceRequest && item.srNumber) {
+        // Pastikan field utama bernilai default jika kosong (Service Request)
+        item.srNumber = item.srNumber || "";
+        item.woNumber = item.woNumber || "";
+        item.uc3Number = item.uc3Number || "";
+        item.uc3Status = item.uc3Status || "None";
+        item.srDate = item.srDate || "";
+        item.srAging = parseInt(item.srAging) || 0;
+        item.unitCondition = item.unitCondition || "Running Without Trouble";
+        item.model = item.model || "HX210HD";
+        item.status = item.status || "Inprogress";
+        result.serviceRequests.push(item);
       }
-    }
-    
-    // Pastikan field utama bernilai default jika kosong
-    item.srNumber = item.srNumber || "";
-    item.woNumber = item.woNumber || "";
-    item.uc3Number = item.uc3Number || "";
-    item.uc3Status = item.uc3Status || "None";
-    item.srDate = item.srDate || "";
-    item.srAging = parseInt(item.srAging) || 0;
-    item.planningDate = item.planningDate || "";
-    item.actionDate = item.actionDate || "";
-    item.rfuDate = item.rfuDate || "";
-    item.unitCondition = item.unitCondition || "Running Without Trouble";
-    item.snUnit = item.snUnit || "";
-    item.model = item.model || "HX210HD";
-    item.issueDescription = item.issueDescription || "";
-    item.location = item.location || "";
-    item.labour1 = item.labour1 || "";
-    item.labour2 = item.labour2 || "";
-    item.status = item.status || "Inprogress";
-    item.leadJobDescription = item.leadJobDescription || "";
-    
-    if (item.srNumber) {
-      data.push(item);
     }
   }
   
-  return ContentService.createTextOutput(JSON.stringify(data))
+  return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
