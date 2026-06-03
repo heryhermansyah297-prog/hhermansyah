@@ -21,7 +21,8 @@ import {
   FileText,
   Calendar,
   X,
-  Filter
+  Filter,
+  ArrowDownToLine
 } from 'lucide-react';
 import { FailureInformation } from '../types';
 import { INITIAL_FAILURE_INFORMATIONS } from '../data/mockData';
@@ -285,6 +286,40 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
     document.body.removeChild(link);
   };
 
+  const [isPushing, setIsPushing] = useState(false);
+  const handlePushAllToSheets = async () => {
+    if (fiList.length === 0) {
+      alert('Tidak ada data lokal untuk didorong ke Google Sheets.');
+      return;
+    }
+    if (!window.confirm(`Anda akan mereplace SEMUA baris Failure Information di Sheet dengan ${fiList.length} baris data ini. Yakin?`)) {
+      return;
+    }
+    if (!scriptUrl) {
+      alert('Google Apps Script URL belum diatur di menu Sinkronisasi!');
+      return;
+    }
+    setIsPushing(true);
+    try {
+       const res = await fetch(scriptUrl, {
+         method: 'POST',
+         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+         body: JSON.stringify({ 
+           action: 'bulk_replace', 
+           type: 'failure_information',
+           payload: fiList
+         })
+       });
+       console.log(await res.text());
+       alert('Berhasil mendorong semua data ke Google Sheets!');
+    } catch (err: any) {
+       console.error("Gagal push ke Google Sheets", err);
+       alert("Gagal push data. " + err.message);
+    } finally {
+       setIsPushing(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 1. Header Information & Actions */}
@@ -488,6 +523,15 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
             >
               <FileDown className="w-3 text-zinc-500" />
               <span>Ekspor FI (CSV)</span>
+            </button>
+            <span className="text-zinc-800">|</span>
+            <button
+              onClick={handlePushAllToSheets}
+              disabled={isPushing}
+              className={`inline-flex items-center space-x-1 py-1 transition font-medium ${isPushing ? 'text-zinc-600 cursor-not-allowed' : 'text-blue-400 hover:text-blue-300 cursor-pointer'}`}
+            >
+              <ArrowDownToLine className="w-3 h-3 rotate-180" />
+              <span>{isPushing ? 'Menyinkronkan...' : 'Push Semua Data ke Google Sheet'}</span>
             </button>
           </div>
         </div>

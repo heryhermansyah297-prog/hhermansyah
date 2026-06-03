@@ -8,6 +8,7 @@ import { ServiceRequest, FailureInformation } from '../types';
 export const INITIAL_SERVICE_REQUESTS: ServiceRequest[] = [
   {
     id: '1',
+    customerName: 'PT SINANTA',
     srNumber: 'SR/PKY/5/26/0128',
     woNumber: 'UC3/PKY/05/26',
     uc3Number: '',

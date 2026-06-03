@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Info,
   X,
-  Trash2
+  Trash2,
+  ArrowDownToLine
 } from 'lucide-react';
 import { ServiceRequest, SuratTugas } from '../types';
 
@@ -71,6 +72,65 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
     };
   }, []);
 
+  const computeMetricsForAssignment = (assignmentToSave: any) => {
+    const maxDeclDays = assignmentToSave.statusTugas === 'Lumpsum' ? 15 : 14;
+    let declarationElapsed = 0;
+    if (assignmentToSave.lastDateDeclaration) {
+      const lastDecl = new Date(assignmentToSave.lastDateDeclaration);
+      const today = new Date();
+      if (!isNaN(lastDecl.getTime())) {
+        declarationElapsed = Math.floor((today.getTime() - lastDecl.getTime()) / (1000 * 60 * 60 * 24));
+      }
+    } else if (assignmentToSave.startDate) {
+      const start = new Date(assignmentToSave.startDate);
+      const today = new Date();
+      if (!isNaN(start.getTime())) {
+        declarationElapsed = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      }
+    }
+    const deklarasi = Math.max(0, Math.round((declarationElapsed / maxDeclDays) * 100));
+
+    let durationDays = 0;
+    let weekdayCount = 0;
+    if (assignmentToSave.startDate && assignmentToSave.endDate) {
+      const start = new Date(assignmentToSave.startDate);
+      const end = new Date(assignmentToSave.endDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
+        durationDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const tempDate = new Date(start);
+        if (end.getTime() - start.getTime() < 366 * 24 * 60 * 60 * 1000) {
+          while (tempDate <= end) {
+            const day = tempDate.getDay();
+            if (day >= 1 && day <= 5) weekdayCount++;
+            tempDate.setDate(tempDate.getDate() + 1);
+          }
+        }
+      }
+    }
+    const kpiScore = assignmentToSave.startDate && assignmentToSave.endDate 
+      ? Math.min(100, Math.round((weekdayCount / 5) * 100))
+      : 0;
+
+    let grade = '-';
+    if (assignmentToSave.startDate && assignmentToSave.endDate) {
+      if (kpiScore >= 100) grade = 'A+';
+      else if (kpiScore >= 90) grade = 'A';
+      else if (kpiScore >= 80) grade = 'B+';
+      else if (kpiScore >= 70) grade = 'B';
+      else if (kpiScore >= 60) grade = 'C';
+      else if (kpiScore > 0) grade = 'D';
+      else grade = 'F';
+    }
+
+    return {
+      ...assignmentToSave,
+      deklarasi: deklarasi + '%',
+      hariSt: durationDays > 0 ? durationDays : '',
+      kpiScore: grade === '-' ? '-' : `${kpiScore}% (${grade})`,
+      action: '-'
+    };
+  };
+
   // Save specific mechanic assignment
   const saveAssignment = async (mechanicName: string, start: string, end: string, statusTugas?: 'Surat Tugas' | 'Lumpsum', lastDateDeclaration?: string) => {
     const existing = assignments[mechanicName] || { mechanicName, startDate: '', endDate: '' };
@@ -94,63 +154,8 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
     const scriptUrl = localStorage.getItem('gs_script_url');
     if (scriptUrl) {
       try {
-        const maxDeclDays = assignmentToSave.statusTugas === 'Lumpsum' ? 15 : 14;
-        let declarationElapsed = 0;
-        if (assignmentToSave.lastDateDeclaration) {
-          const lastDecl = new Date(assignmentToSave.lastDateDeclaration);
-          const today = new Date();
-          if (!isNaN(lastDecl.getTime())) {
-            declarationElapsed = Math.floor((today.getTime() - lastDecl.getTime()) / (1000 * 60 * 60 * 24));
-          }
-        } else if (assignmentToSave.startDate) {
-          const start = new Date(assignmentToSave.startDate);
-          const today = new Date();
-          if (!isNaN(start.getTime())) {
-            declarationElapsed = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-          }
-        }
-        const deklarasi = Math.max(0, Math.round((declarationElapsed / maxDeclDays) * 100));
-
-        let durationDays = 0;
-        let weekdayCount = 0;
-        if (assignmentToSave.startDate && assignmentToSave.endDate) {
-          const start = new Date(assignmentToSave.startDate);
-          const end = new Date(assignmentToSave.endDate);
-          if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
-            durationDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-            const tempDate = new Date(start);
-            if (end.getTime() - start.getTime() < 366 * 24 * 60 * 60 * 1000) {
-              while (tempDate <= end) {
-                const day = tempDate.getDay();
-                if (day >= 1 && day <= 5) weekdayCount++;
-                tempDate.setDate(tempDate.getDate() + 1);
-              }
-            }
-          }
-        }
-        const kpiScore = assignmentToSave.startDate && assignmentToSave.endDate 
-          ? Math.min(100, Math.round((weekdayCount / 5) * 100))
-          : 0;
-
-        let grade = '-';
-        if (assignmentToSave.startDate && assignmentToSave.endDate) {
-          if (kpiScore >= 100) grade = 'A+';
-          else if (kpiScore >= 90) grade = 'A';
-          else if (kpiScore >= 80) grade = 'B+';
-          else if (kpiScore >= 70) grade = 'B';
-          else if (kpiScore >= 60) grade = 'C';
-          else if (kpiScore > 0) grade = 'D';
-          else grade = 'F';
-        }
-
-        const payloadWithMetrics = {
-          ...assignmentToSave,
-          deklarasi: deklarasi + '%',
-          hariSt: durationDays > 0 ? durationDays : '',
-          kpiScore: grade === '-' ? '-' : `${kpiScore}% (${grade})`,
-          action: '-'
-        };
-
+        const payloadWithMetrics = computeMetricsForAssignment(assignmentToSave);
+        
         await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -236,6 +241,42 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
 
       setIsDeleteMechanicModalOpen(false);
       setMechanicToDelete('');
+    }
+  };
+
+  const [isPushing, setIsPushing] = useState(false);
+  const handlePushAllToSheets = async () => {
+    const list = Object.values(assignments).map(a => computeMetricsForAssignment(a));
+    if (list.length === 0) {
+      alert('Tidak ada data mekanik lokal untuk didorong ke Google Sheets.');
+      return;
+    }
+    if (!window.confirm(`Anda akan mereplace SEMUA baris Surat Tugas di Sheet dengan ${list.length} data ini. Yakin?`)) {
+      return;
+    }
+    const scriptUrl = localStorage.getItem('gs_script_url');
+    if (!scriptUrl) {
+      alert('Google Apps Script URL belum diatur di menu Sinkronisasi!');
+      return;
+    }
+    setIsPushing(true);
+    try {
+       const res = await fetch(scriptUrl, {
+         method: 'POST',
+         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+         body: JSON.stringify({ 
+           action: 'bulk_replace', 
+           type: 'surat_tugas',
+           payload: list
+         })
+       });
+       console.log(await res.text());
+       alert('Berhasil mendorong semua data Surat Tugas ke Google Sheets!');
+    } catch (err: any) {
+       console.error("Gagal push ke Google Sheets", err);
+       alert("Gagal push data. " + err.message);
+    } finally {
+       setIsPushing(false);
     }
   };
 
@@ -436,6 +477,15 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+          <button
+            onClick={handlePushAllToSheets}
+            disabled={isPushing}
+            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-[10px] font-bold tracking-wider uppercase transition ${isPushing ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed' : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-900/40 cursor-pointer'}`}
+          >
+            <ArrowDownToLine className="w-3.5 h-3.5 rotate-180" />
+            <span>{isPushing ? 'Pushing...' : 'Push ke Sheet'}</span>
+          </button>
+        
           <button
             onClick={handleAddNewMechanic}
             className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-900/40 rounded-lg text-[10px] font-bold tracking-wider uppercase transition cursor-pointer"

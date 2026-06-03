@@ -16,6 +16,7 @@ interface AddRequestModalProps {
 
 export default function AddRequestModal({ isOpen, onClose, onSave, editData }: AddRequestModalProps) {
   const [formData, setFormData] = useState({
+    customerName: '',
     srNumber: 'SR/PKY/05/26/0160',
     woNumber: '',
     uc3Number: '',
@@ -44,6 +45,7 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData }: A
   useEffect(() => {
     if (editData) {
       setFormData({
+        customerName: editData.customerName || '',
         srNumber: editData.srNumber || '',
         woNumber: editData.woNumber || '',
         uc3Number: editData.uc3Number || '',
@@ -70,6 +72,7 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData }: A
       });
     } else {
       setFormData({
+        customerName: '',
         srNumber: 'SR/PKY/05/26/' + Math.floor(100 + Math.random() * 900),
         woNumber: '',
         uc3Number: '',
@@ -141,6 +144,21 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData }: A
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Row 0: Customer Name */}
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Customer Name</label>
+              <input
+                type="text"
+                name="customerName"
+                value={formData.customerName}
+                onChange={handleChange}
+                placeholder="cth: PT BUKIT MAKMUR MANDIRI UTAMA"
+                className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-white font-sans text-xs focus:outline-none focus:border-blue-500 transition-colors uppercase"
+              />
+            </div>
+          </div>
+
           {/* Row 1: SR Number & WO Number */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

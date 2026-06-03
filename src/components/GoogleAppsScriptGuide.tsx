@@ -114,6 +114,7 @@ function mapHeaderToKey(header) {
   var h = header.toLowerCase().replace(/[^a-z0-9]/g, "");
   
   // Service Request
+  if (h === "customername" || h === "namacustomer") return "customerName";
   if (h === "srnumber" || h === "nomorsr") return "srNumber";
   if (h === "wonumber" || h === "nomorwo") return "woNumber";
   if (h === "uc3number" || h === "uc3no") return "uc3Number";
@@ -234,6 +235,28 @@ function doPost(e) {
        return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
     } 
     
+    if (action === 'bulk_replace') {
+       // Hapus data lama mulai dari baris ke-2 hingga baris terakhir
+       var maxRows = sheet.getMaxRows();
+       if (maxRows > 1) {
+         // Kosongkan konten saja agar format tidak hilang
+         sheet.getRange(2, 1, maxRows - 1, sheet.getLastColumn()).clearContent();
+       }
+       
+       // Masukkan semua data yang dikirim dengan menyusun kolom sesuai header
+       if (payload && Array.isArray(payload)) {
+         var newRows = [];
+         for (var i = 0; i < payload.length; i++) {
+           newRows.push(getOrderedRowData(payload[i]));
+         }
+         if (newRows.length > 0) {
+            sheet.getRange(2, 1, newRows.length, newRows[0].length).setValues(newRows);
+         }
+       }
+       
+       return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     // For update / delete, we find by ID (simulated by row index)
     if (action === 'update' || action === 'delete') {
        var targetRowIdx = -1;

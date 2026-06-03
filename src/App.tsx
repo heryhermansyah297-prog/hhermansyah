@@ -25,7 +25,8 @@ import {
   Calendar,
   Layers,
   Activity,
-  UserCheck
+  UserCheck,
+  ArrowDownToLine
 } from 'lucide-react';
 
 import { ServiceRequest } from './types';
@@ -92,7 +93,7 @@ export default function App() {
     
     // Sync automatically on start if we have a URL
     if (initialUrl) {
-      handleSyncWithGoogleAppScript(initialUrl).catch(e => console.error("Initial load sync failed:", e));
+      handleSyncWithGoogleAppScript(initialUrl, true).catch(e => console.error("Initial load sync failed:", e));
     }
     
     // As fallback load from storage
@@ -164,8 +165,11 @@ export default function App() {
   }, [requests, searchQuery, filterCondition, filterStatus, filterUc3Status, filterLocation]);
 
   // --- Sync Google Sheet via Apps Script ---
-  const handleSyncWithGoogleAppScript = async (url: string) => {
+  const handleSyncWithGoogleAppScript = async (url: string, isAutoSync: boolean = false) => {
     setIsSyncing(true);
+    if (!localStorage.getItem('gs_script_url')) {
+      localStorage.setItem('gs_script_url', url);
+    }
     try {
       const fetchUrl = url + (url.includes('?') ? '&' : '?') + 'type=all&v=' + Date.now();
       const response = await fetch(fetchUrl);
@@ -256,10 +260,15 @@ export default function App() {
       saveRequestsToStateAndStorage(sanitized);
       setScriptUrl(url);
       localStorage.setItem('gs_script_url', url);
-      alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n(Service Requests: ${sanitized.length}, Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0}, KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0})`);
+      
+      if (!isAutoSync) {
+        alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n(Service Requests: ${sanitized.length}, Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0}, KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0})`);
+      }
     } catch (err: any) {
       console.error('Apps script error:', err);
-      throw new Error(`Data Apps Script gagal di-fetch.\nDetail: ${err.message || ''}\n\n* Jika Anda baru saja memperbarui script, pastikan untuk membuat DEPLOYMENT BARU (New Deployment), bukan hanya Test Deployment.`);
+      if (!isAutoSync) {
+        throw new Error(`Data Apps Script gagal di-fetch.\nDetail: ${err.message || ''}\n\n* Jika Anda baru saja memperbarui script, pastikan untuk membuat DEPLOYMENT BARU (New Deployment), bukan hanya Test Deployment.`);
+      }
     } finally {
       setIsSyncing(false);
     }
@@ -357,6 +366,41 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const [isPushing, setIsPushing] = useState(false);
+  const handlePushAllToSheets = async () => {
+    if (requests.length === 0) {
+      alert('Tidak ada data SR lokal untuk didorong ke Google Sheets.');
+      return;
+    }
+    if (!window.confirm(`Anda akan mereplace SEMUA baris Service Request di Sheet dengan ${requests.length} data ini. Yakin?`)) {
+      return;
+    }
+    const scriptUrl = localStorage.getItem('gs_script_url');
+    if (!scriptUrl) {
+      alert('Google Apps Script URL belum diatur di menu Sinkronisasi!');
+      return;
+    }
+    setIsPushing(true);
+    try {
+       const res = await fetch(scriptUrl, {
+         method: 'POST',
+         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+         body: JSON.stringify({ 
+           action: 'bulk_replace', 
+           type: 'service_request',
+           payload: requests
+         })
+       });
+       console.log(await res.text());
+       alert('Berhasil mendorong semua data SR ke Google Sheets!');
+    } catch (err: any) {
+       console.error("Gagal push ke Google Sheets", err);
+       alert("Gagal push data. " + err.message);
+    } finally {
+       setIsPushing(false);
+    }
   };
 
   // --- Metrics ---
@@ -668,8 +712,16 @@ export default function App() {
                       Menampilkan {filteredRequests.length} dari {requests.length} total request unit aktif
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-medium text-zinc-400 bg-[#09090B] border border-[#27272A] px-2.5 py-1 rounded-lg">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <button
+                      onClick={handlePushAllToSheets}
+                      disabled={isPushing}
+                      className={`inline-flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-[10px] font-bold tracking-wider uppercase transition ${isPushing ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed' : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-900/40 cursor-pointer'}`}
+                    >
+                      <ArrowDownToLine className="w-3.5 h-3.5 rotate-180" />
+                      <span>{isPushing ? 'Pushing...' : 'Push ke Sheet'}</span>
+                    </button>
+                    <span className="text-[10px] font-medium text-zinc-400 bg-[#09090B] border border-[#27272A] px-2.5 py-1.5 rounded-lg">
                       Sektor Sektor Aktif: <span className="text-blue-400 font-extrabold">{filterLocation === 'All' ? 'Semua Wilayah' : filterLocation}</span>
                     </span>
                   </div>
@@ -680,6 +732,7 @@ export default function App() {
                     <thead>
                       <tr className="bg-[#09090B] text-zinc-400 border-b border-[#27272A] text-[9.5px] font-bold tracking-widest uppercase">
                         <th className="px-2.5 py-1.5 w-10 text-center">Detail</th>
+                        <th className="px-2.5 py-1.5">Customer Name</th>
                         <th className="px-2.5 py-1.5">Nomor SR</th>
                         <th className="px-2.5 py-1.5">Status UC3</th>
                         <th className="px-2.5 py-1.5">Tanggal SR</th>
@@ -728,6 +781,13 @@ export default function App() {
                                       <ChevronDown className="w-3 h-3 text-zinc-400 mx-auto" />
                                     )}
                                   </button>
+                                </td>
+                                
+                                {/* CUSTOMER NAME */}
+                                <td className="px-2.5 py-1">
+                                  <div className="font-sans font-medium text-zinc-300 text-[10px] uppercase truncate max-w-[120px]">
+                                    {req.customerName || '-'}
+                                  </div>
                                 </td>
 
                                 {/* SR NO */}

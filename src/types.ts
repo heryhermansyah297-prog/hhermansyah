@@ -5,6 +5,7 @@
 
 export interface ServiceRequest {
   id: string; // Internal unique ID
+  customerName?: string;
   srNumber: string;
   woNumber: string;
   uc3Number: string;
