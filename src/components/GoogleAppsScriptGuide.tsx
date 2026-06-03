@@ -67,21 +67,24 @@ export default function GoogleAppsScriptGuide({
       return h.toString().trim();
     });
     
-    // Classify columns into segment ranges
+    // Classify columns into segment ranges statically based on columns of the sheet:
+    // Kolom A sampai AL (0-37): Service Requests
+    // Kolom AM sampai AW (38-48): Failure Information
+    // Kolom AX sampai BG (49-58): Surat Tugas / KPI
     var colSegments = new Array(headers.length);
-    var currentSegment = 'service_request';
     for (var j = 0; j < headers.length; j++) {
-      var hClean = headers[j].toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (hClean === 'customer' || hClean === 'finumber') {
-        currentSegment = 'failure_information';
-      } else if (hClean === 'namamekanik' || hClean === 'mechanicname') {
-        currentSegment = 'surat_tugas';
+      if (j >= 0 && j <= 37) {
+        colSegments[j] = 'service_request';
+        result.sheetsFound.serviceRequests = true;
+      } else if (j >= 38 && j <= 48) {
+        colSegments[j] = 'failure_information';
+        result.sheetsFound.failureInformations = true;
+      } else if (j >= 49 && j <= 58) {
+        colSegments[j] = 'surat_tugas';
+        result.sheetsFound.suratTugas = true;
+      } else {
+        colSegments[j] = 'unknown';
       }
-      colSegments[j] = currentSegment;
-      
-      if (currentSegment === 'service_request') result.sheetsFound.serviceRequests = true;
-      if (currentSegment === 'failure_information') result.sheetsFound.failureInformations = true;
-      if (currentSegment === 'surat_tugas') result.sheetsFound.suratTugas = true;
     }
     
     for (var i = 1; i < rows.length; i++) {
@@ -177,12 +180,13 @@ function mapHeaderToKey(header, segment) {
     if (h === "finumber" || h === "nomorfi") return "fiNumber";
     if (h === "fidate" || h === "tanggalfi") return "fiDate";
     if (h === "fiaging" || h === "fiagingdays") return "fiAging";
-    if (h === "fistatus" || h === "statusfi" || h === "status") return "fiStatus";
+    if (h === "fistatus" || h === "statusfi") return "fiStatus";
     if (h === "partstatus" || h === "statuspart") return "partStatus";
     if (h === "planningprogress" || h === "progressplanning") return "planningProgress";
     if (h === "evidentpm" || h === "evident") return "evidentPm";
     if (h === "createby" || h === "dibuatoleh") return "createBy";
     if (h === "action" || h === "tindakan") return "action";
+    if (h === "status") return "status";
   }
   
   if (segment === 'surat_tugas') {
@@ -198,6 +202,20 @@ function mapHeaderToKey(header, segment) {
   }
   
   return null;
+}
+
+function sortTablesIndependently(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    // 1. Sort Service Requests (Columns A to AL, i.e., cols 1 to 38) based on Column B (column 2 - Nomor SR)
+    sheet.getRange(2, 1, lastRow - 1, 38).sort({column: 2, ascending: true});
+    
+    // 2. Sort Failure Information (Columns AM to AW, i.e., cols 39 to 49) based on Column AN (column 40 - FI Number)
+    sheet.getRange(2, 39, lastRow - 1, 11).sort({column: 40, ascending: true});
+    
+    // 3. Sort Surat Tugas (Columns AX to BG, i.e., cols 50 to 59) based on Column AX (column 50 - Nama Mekanik)
+    sheet.getRange(2, 50, lastRow - 1, 10).sort({column: 50, ascending: true});
+  }
 }
 
 function doPost(e) {
@@ -244,20 +262,29 @@ function doPost(e) {
        }
     }
 
+    var maxCols = sheet.getMaxColumns();
+    if (maxCols < 59) {
+      sheet.insertColumnsAfter(maxCols, 59 - maxCols);
+    }
+
     var rows = sheet.getDataRange().getValues();
     var headers = rows[0].map(function(h) { return h.toString().trim(); });
 
-    // Classify columns into segment ranges
+    // Classify columns into segment ranges statically based on columns of the sheet:
+    // Kolom A sampai AL (0-37): Service Requests
+    // Kolom AM sampai AW (38-48): Failure Information
+    // Kolom AX sampai BG (49-58): Surat Tugas / KPI
     var colSegments = new Array(headers.length);
-    var currentSegment = 'service_request';
     for (var j = 0; j < headers.length; j++) {
-      var hClean = headers[j].toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (hClean === 'customer' || hClean === 'finumber') {
-        currentSegment = 'failure_information';
-      } else if (hClean === 'namamekanik' || hClean === 'mechanicname') {
-        currentSegment = 'surat_tugas';
+      if (j >= 0 && j <= 37) {
+        colSegments[j] = 'service_request';
+      } else if (j >= 38 && j <= 48) {
+        colSegments[j] = 'failure_information';
+      } else if (j >= 49 && j <= 58) {
+        colSegments[j] = 'surat_tugas';
+      } else {
+        colSegments[j] = 'unknown';
       }
-      colSegments[j] = currentSegment;
     }
 
     // Find the columns that are target for this action
@@ -312,6 +339,7 @@ function doPost(e) {
          var val = (key && payload[key] !== undefined && payload[key] !== null) ? payload[key] : "";
          sheet.getRange(targetRowIdx, colIndex).setValue(val);
        }
+       sortTablesIndependently(sheet);
        return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
     } 
     
@@ -344,7 +372,7 @@ function doPost(e) {
            sheet.getRange(2, minColIdx + 1, valuesToWrite.length, numCols).setValues(valuesToWrite);
          }
        }
-       
+       sortTablesIndependently(sheet);
        return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -391,6 +419,7 @@ function doPost(e) {
                   sheet.getRange(targetRowIdx, colIndex).setValue(val);
                }
            }
+           sortTablesIndependently(sheet);
            return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
        } else {
            return ContentService.createTextOutput(JSON.stringify({ status: 'not_found', msg: 'Baris tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);

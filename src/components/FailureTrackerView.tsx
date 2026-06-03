@@ -26,6 +26,21 @@ import {
 import { FailureInformation } from '../types';
 import { INITIAL_FAILURE_INFORMATIONS } from '../data/mockData';
 
+const calculateFiAging = (fiDateStr: string): number => {
+  if (!fiDateStr) return 0;
+  const fiDate = new Date(fiDateStr);
+  if (isNaN(fiDate.getTime())) return 0;
+  const today = new Date();
+  
+  // Reset times to midnight
+  today.setHours(0, 0, 0, 0);
+  fiDate.setHours(0, 0, 0, 0);
+  
+  const diffTime = today.getTime() - fiDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+};
+
 export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }) {
   // --- States ---
   const [fiList, setFiList] = useState<FailureInformation[]>([]);
@@ -47,19 +62,33 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
     evidentPm: '',
     createBy: '',
     partStatus: 'Waiting Part',
-    planningProgress: ''
+    planningProgress: '',
+    status: 'waiting decision'
   });
 
   const loadData = () => {
     const saved = localStorage.getItem('failure_informations');
     if (saved) {
       try {
-        setFiList(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        const updated = parsed.map((item: any) => ({
+          ...item,
+          fiAging: calculateFiAging(item.fiDate)
+        }));
+        setFiList(updated);
       } catch (e) {
-        setFiList(INITIAL_FAILURE_INFORMATIONS);
+        const fallback = INITIAL_FAILURE_INFORMATIONS.map(item => ({
+          ...item,
+          fiAging: calculateFiAging(item.fiDate)
+        }));
+        setFiList(fallback);
       }
     } else {
-      setFiList(INITIAL_FAILURE_INFORMATIONS);
+      const fallback = INITIAL_FAILURE_INFORMATIONS.map(item => ({
+        ...item,
+        fiAging: calculateFiAging(item.fiDate)
+      }));
+      setFiList(fallback);
     }
   };
 
@@ -162,7 +191,8 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       evidentPm: '',
       createBy: 'Agung Kristianto',
       partStatus: 'Waiting Part',
-      planningProgress: ''
+      planningProgress: '',
+      status: 'waiting decision'
     });
     setIsModalOpen(true);
   };
@@ -174,11 +204,12 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       fiNumber: item.fiNumber,
       fiDate: item.fiDate,
       fiStatus: item.fiStatus,
-      fiAging: item.fiAging,
+      fiAging: calculateFiAging(item.fiDate),
       evidentPm: item.evidentPm,
       createBy: item.createBy,
       partStatus: item.partStatus || 'Waiting Part',
-      planningProgress: item.planningProgress || ''
+      planningProgress: item.planningProgress || '',
+      status: item.status || 'waiting decision'
     });
     setIsModalOpen(true);
   };
@@ -212,9 +243,15 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
 
     let itemToSync: FailureInformation;
 
+    const fiAgingCalculated = calculateFiAging(formData.fiDate);
+
     if (editingItem) {
       // Edit
-      itemToSync = { ...editingItem, ...formData };
+      itemToSync = { 
+        ...editingItem, 
+        ...formData,
+        fiAging: fiAgingCalculated
+      };
       const updated = fiList.map(item =>
         item.id === editingItem.id ? itemToSync : item
       );
@@ -223,7 +260,8 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       // Add
       itemToSync = {
         id: 'fi-' + Date.now(),
-        ...formData
+        ...formData,
+        fiAging: fiAgingCalculated
       };
       saveToStorage([itemToSync, ...fiList]);
     }
@@ -576,13 +614,14 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
                 <th className="px-3 py-2.5">PLANNING PROGRESS</th>
                 <th className="px-3 py-2.5 text-center">EVIDENT PM</th>
                 <th className="px-3 py-2.5">CREATE BY</th>
+                <th className="px-3 py-2.5 text-[#f59e0b]">STATUS (AW)</th>
                 <th className="px-3 py-2.5 text-right w-20">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#27272A]/60 text-[11px] font-medium text-zinc-200">
               {filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-zinc-500 text-xs font-semibold">
+                  <td colSpan={11} className="px-4 py-8 text-center text-zinc-500 text-xs font-semibold">
                     Tidak ada record Failure Information yang cocok dengan filter pencarian pencocokan.
                   </td>
                 </tr>
@@ -718,6 +757,28 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
                       </div>
                     </td>
 
+                    {/* STATUS (AW) */}
+                    <td className="px-3 py-2.5">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${
+                          (item.status || 'waiting decision') === 'RFU'
+                            ? 'bg-emerald-550/10 text-emerald-405 border border-emerald-550/15'
+                            : (item.status || 'waiting decision') === 'inprogress'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/15'
+                            : 'bg-zinc-700/10 text-zinc-400 border border-[#27272A]--/20'
+                        }`}
+                      >
+                        <span className={`w-1 h-1 rounded-full ${
+                          (item.status || 'waiting decision') === 'RFU' 
+                            ? 'bg-emerald-400' 
+                            : (item.status || 'waiting decision') === 'inprogress' 
+                            ? 'bg-amber-400' 
+                            : 'bg-zinc-400'
+                        }`} />
+                        {item.status || 'waiting decision'}
+                      </span>
+                    </td>
+
                     {/* ACTIONS */}
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -809,7 +870,14 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
                     <input
                       type="date"
                       value={formData.fiDate}
-                      onChange={(e) => setFormData({ ...formData, fiDate: e.target.value })}
+                      onChange={(e) => {
+                        const nextDate = e.target.value;
+                        setFormData({
+                          ...formData,
+                          fiDate: nextDate,
+                          fiAging: calculateFiAging(nextDate)
+                        });
+                      }}
                       className="w-full px-3 py-2 bg-[#09090B] border border-[#27272A] rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
                     />
                   </div>
@@ -836,14 +904,14 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">
-                      Aging (Hari)
+                      Aging (Hari) [Otomatis]
                     </label>
                     <input
                       type="number"
                       min={0}
+                      readOnly
                       value={formData.fiAging}
-                      onChange={(e) => setFormData({ ...formData, fiAging: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-[#09090B] border border-[#27272A] rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                      className="w-full px-3 py-2 bg-[#18181B] border border-[#27272A] rounded-xl text-zinc-400 font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -873,6 +941,25 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
                       onChange={(e) => setFormData({ ...formData, planningProgress: e.target.value })}
                       className="w-full px-3 py-2 bg-[#09090B] border border-[#27272A] rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
                     />
+                  </div>
+                </div>
+
+                {/* Status DB Dropdown (AW) */}
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-amber-500 mb-1.5 tracking-widest flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      Status (Sync to Column AW)
+                    </label>
+                    <select
+                      value={formData.status || 'waiting decision'}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-3 py-2 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                    >
+                      <option value="waiting decision">waiting decision</option>
+                      <option value="inprogress">inprogress</option>
+                      <option value="RFU">RFU</option>
+                    </select>
                   </div>
                 </div>
 

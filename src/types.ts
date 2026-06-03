@@ -49,6 +49,7 @@ export interface FailureInformation {
   createBy: string;
   partStatus?: string;
   planningProgress?: string;
+  status?: string;
 }
 
 export interface SuratTugas {
