@@ -11,7 +11,6 @@ import {
   Trash2,
   Edit2,
   FileDown,
-  RotateCcw,
   SlidersHorizontal,
   TrendingUp,
   User,
@@ -80,13 +79,6 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
   const saveToStorage = (newList: FailureInformation[]) => {
     setFiList(newList);
     localStorage.setItem('failure_informations', JSON.stringify(newList));
-  };
-
-  // Reset or restore demo data
-  const handleResetData = () => {
-    if (window.confirm('Apakah Anda yakin ingin meriset data Failure Information ke kondisi awal?')) {
-      saveToStorage(INITIAL_FAILURE_INFORMATIONS);
-    }
   };
 
   // --- Filtering Logic ---
@@ -508,15 +500,6 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
           </div>
 
           <div className="flex items-center gap-2.5 text-xs text-zinc-400 justify-end">
-            <button
-              onClick={handleResetData}
-              className="inline-flex items-center space-x-1 text-zinc-500 hover:text-zinc-300 py-1 transition cursor-pointer font-medium"
-              title="Reset data lokal ke setting orisinal"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset Data Demo</span>
-            </button>
-            <span className="text-zinc-800">|</span>
             <button
               onClick={handleExportCSV}
               className="inline-flex items-center space-x-1 text-zinc-400 hover:text-white py-1 transition cursor-pointer font-medium"

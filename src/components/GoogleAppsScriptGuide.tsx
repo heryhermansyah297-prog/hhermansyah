@@ -117,22 +117,27 @@ function mapHeaderToKey(header) {
   if (h === "customername" || h === "namacustomer") return "customerName";
   if (h === "srnumber" || h === "nomorsr") return "srNumber";
   if (h === "wonumber" || h === "nomorwo") return "woNumber";
-  if (h === "uc3number" || h === "uc3no") return "uc3Number";
-  if (h === "uc3status") return "uc3Status";
-  if (h === "srdate" || h === "tanggal") return "srDate";
+  if (h === "uc3number" || h === "uc3no" || h === "nomoruc3") return "uc3Number";
+  if (h === "uc3status" || h === "statusuc3") return "uc3Status";
+  if (h === "ticketid" || h === "idticket") return "ticketId";
+  if (h === "srdate" || h === "tanggal" || h === "tanggalsr") return "srDate";
   if (h === "sraging" || h === "aging" || h === "umursr") return "srAging";
-  if (h === "planningdate" || h === "tanggalplanning") return "planningDate";
+  if (h === "planningdate" || h === "tanggalplanning" || h === "jadwalplanning") return "planningDate";
   if (h === "actiondate" || h === "tanggalaction") return "actionDate";
   if (h === "rfudate" || h === "tanggalrfu") return "rfuDate";
-  if (h === "unitcondition" || h === "kondisiunit") return "unitCondition";
-  if (h === "snunit" || h === "serialnumber") return "snUnit";
+  if (h === "unitcondition" || h === "kondisiunit" || h === "kondisialat") return "unitCondition";
+  if (h === "snunit" || h === "serialnumber" || h === "sn") return "snUnit";
   if (h === "model" || h === "tipe") return "model";
-  if (h === "issuedescription" || h === "masalah" || h === "deskripsi" || h === "deskripsiisu") return "issueDescription";
-  if (h === "location" || h === "lokasi") return "location";
+  if (h === "issuedescription" || h === "masalah" || h === "deskripsi" || h === "deskrispisu" || h === "deskripsimasalah") return "issueDescription";
+  if (h === "location" || h === "lokasi" || h === "sektorlokasi") return "location";
   if (h === "labour1" || h === "mekanik1" || h === "laboursatu") return "labour1";
   if (h === "labour2" || h === "mekanik2" || h === "labourdua") return "labour2";
-  if (h === "status") return "status";
-  if (h === "leadjobdescription" || h === "deskripsikerja" || h === "leadjob") return "leadJobDescription";
+  if (h === "labour3" || h === "mekanik3" || h === "labourtiga") return "labour3";
+  if (h === "labour4" || h === "mekanik4" || h === "labourempat") return "labour4";
+  if (h === "labour5" || h === "mekanik5" || h === "labourlima") return "labour5";
+  if (h === "labour6" || h === "mekanik6" || h === "labourenam") return "labour6";
+  if (h === "status" || h === "statuskerja") return "status";
+  if (h === "leadjobdescription" || h === "deskripsikerja" || h === "leadjob" || h === "laporanaktivitasmekanikleadjobdescription" || h === "laporanaktivitasmekanik") return "leadJobDescription";
 
   // Failure Information
   if (h === "customer" || h === "pelanggan") return "customer";

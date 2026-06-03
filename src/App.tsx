@@ -16,7 +16,6 @@ import {
   Trash2,
   Edit2,
   AlertTriangle,
-  RotateCcw,
   SlidersHorizontal,
   FileDown,
   Database,
@@ -336,12 +335,6 @@ export default function App() {
     }
   };
 
-  const restoreInitialDemoData = () => {
-    if (window.confirm('Semua penambahan data lokal akan dihapus dan di-reset kembali ke data default awal sesuai screenshot. Lanjutkan?')) {
-      saveRequestsToStateAndStorage(INITIAL_SERVICE_REQUESTS);
-    }
-  };
-
   // --- Exporters ---
   const handleExportCSV = () => {
     const headers = [
@@ -572,15 +565,6 @@ export default function App() {
                 <span className="text-[#27272A]">|</span>
               </>
             )}
-            <button
-              onClick={restoreInitialDemoData}
-              className="inline-flex items-center space-x-1 text-zinc-500 hover:text-zinc-300 py-1 transition cursor-pointer"
-              title="Reset data lokal ke tabel orisinal"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset Data Demo</span>
-            </button>
-            <span className="text-[#27272A]">|</span>
             <button
               onClick={handleExportCSV}
               className="inline-flex items-center space-x-1 text-zinc-400 hover:text-white py-1 transition cursor-pointer"
