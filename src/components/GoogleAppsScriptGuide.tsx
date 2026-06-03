@@ -50,7 +50,12 @@ export default function GoogleAppsScriptGuide({
   var result = {
     serviceRequests: [],
     failureInformations: [],
-    suratTugas: []
+    suratTugas: [],
+    sheetsFound: {
+      serviceRequests: false,
+      failureInformations: false,
+      suratTugas: false
+    }
   };
   
   for (var s = 0; s < sheets.length; s++) {
@@ -62,46 +67,72 @@ export default function GoogleAppsScriptGuide({
       return h.toString().trim();
     });
     
-    var headersStr = headers.join('').toUpperCase();
-    var isFailureInfo = headersStr.indexOf('FI NUMBER') > -1;
-    var isSuratTugas = headersStr.indexOf('NAMA MEKANIK') > -1 || headersStr.indexOf('ST MULAI') > -1;
-    var isServiceRequest = headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('WO NUMBER') > -1;
+    // Classify columns into segment ranges
+    var colSegments = new Array(headers.length);
+    var currentSegment = 'service_request';
+    for (var j = 0; j < headers.length; j++) {
+      var hClean = headers[j].toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (hClean === 'customer' || hClean === 'finumber') {
+        currentSegment = 'failure_information';
+      } else if (hClean === 'namamekanik' || hClean === 'mechanicname') {
+        currentSegment = 'surat_tugas';
+      }
+      colSegments[j] = currentSegment;
+      
+      if (currentSegment === 'service_request') result.sheetsFound.serviceRequests = true;
+      if (currentSegment === 'failure_information') result.sheetsFound.failureInformations = true;
+      if (currentSegment === 'surat_tugas') result.sheetsFound.suratTugas = true;
+    }
     
     for (var i = 1; i < rows.length; i++) {
       var row = rows[i];
-      var item = { id: i.toString() };
+      var srItem = { id: i.toString() };
+      var fiItem = { id: i.toString() };
+      var stItem = { id: i.toString() };
+      
+      var srHasData = false;
+      var fiHasData = false;
+      var stHasData = false;
       
       for (var j = 0; j < headers.length; j++) {
         var header = headers[j];
         var val = row[j];
         
-        // Format tanggal ke String standar YYYY-MM-DD
         if (val instanceof Date) {
           val = Utilities.formatDate(val, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
         }
         
-        var key = mapHeaderToKey(header);
+        var segment = colSegments[j];
+        var key = mapHeaderToKey(header, segment);
         if (key) {
-          item[key] = val;
+          if (segment === 'service_request') {
+            srItem[key] = val;
+            if (val !== undefined && val !== null && val.toString().trim() !== "") {
+              srHasData = true;
+            }
+          } else if (segment === 'failure_information') {
+            fiItem[key] = val;
+            if (val !== undefined && val !== null && val.toString().trim() !== "") {
+              fiHasData = true;
+            }
+          } else if (segment === 'surat_tugas') {
+            stItem[key] = val;
+            if (val !== undefined && val !== null && val.toString().trim() !== "") {
+              stHasData = true;
+            }
+          }
         }
       }
       
-      if (isFailureInfo && item.fiNumber) {
-        result.failureInformations.push(item);
-      } else if (isSuratTugas && item.mechanicName) {
-        result.suratTugas.push(item);
-      } else if (isServiceRequest && item.srNumber) {
-        // Pastikan field utama bernilai default jika kosong (Service Request)
-        item.srNumber = item.srNumber || "";
-        item.woNumber = item.woNumber || "";
-        item.uc3Number = item.uc3Number || "";
-        item.uc3Status = item.uc3Status || "None";
-        item.srDate = item.srDate || "";
-        item.srAging = parseInt(item.srAging) || 0;
-        item.unitCondition = item.unitCondition || "Running Without Trouble";
-        item.model = item.model || "HX210HD";
-        item.status = item.status || "Inprogress";
-        result.serviceRequests.push(item);
+      if (srHasData && srItem.srNumber) {
+        srItem.status = srItem.status || "Inprogress";
+        result.serviceRequests.push(srItem);
+      }
+      if (fiHasData && fiItem.fiNumber) {
+        result.failureInformations.push(fiItem);
+      }
+      if (stHasData && stItem.mechanicName) {
+        result.suratTugas.push(stItem);
       }
     }
   }
@@ -110,56 +141,61 @@ export default function GoogleAppsScriptGuide({
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function mapHeaderToKey(header) {
+function mapHeaderToKey(header, segment) {
   var h = header.toLowerCase().replace(/[^a-z0-9]/g, "");
   
-  // Service Request
-  if (h === "customername" || h === "namacustomer") return "customerName";
-  if (h === "srnumber" || h === "nomorsr") return "srNumber";
-  if (h === "wonumber" || h === "nomorwo") return "woNumber";
-  if (h === "uc3number" || h === "uc3no" || h === "nomoruc3") return "uc3Number";
-  if (h === "uc3status" || h === "statusuc3") return "uc3Status";
-  if (h === "ticketid" || h === "idticket") return "ticketId";
-  if (h === "srdate" || h === "tanggal" || h === "tanggalsr") return "srDate";
-  if (h === "sraging" || h === "aging" || h === "umursr") return "srAging";
-  if (h === "planningdate" || h === "tanggalplanning" || h === "jadwalplanning") return "planningDate";
-  if (h === "actiondate" || h === "tanggalaction") return "actionDate";
-  if (h === "rfudate" || h === "tanggalrfu") return "rfuDate";
-  if (h === "unitcondition" || h === "kondisiunit" || h === "kondisialat") return "unitCondition";
-  if (h === "snunit" || h === "serialnumber" || h === "sn") return "snUnit";
-  if (h === "model" || h === "tipe") return "model";
-  if (h === "issuedescription" || h === "masalah" || h === "deskripsi" || h === "deskrispisu" || h === "deskripsimasalah") return "issueDescription";
-  if (h === "location" || h === "lokasi" || h === "sektorlokasi") return "location";
-  if (h === "labour1" || h === "mekanik1" || h === "laboursatu") return "labour1";
-  if (h === "labour2" || h === "mekanik2" || h === "labourdua") return "labour2";
-  if (h === "labour3" || h === "mekanik3" || h === "labourtiga") return "labour3";
-  if (h === "labour4" || h === "mekanik4" || h === "labourempat") return "labour4";
-  if (h === "labour5" || h === "mekanik5" || h === "labourlima") return "labour5";
-  if (h === "labour6" || h === "mekanik6" || h === "labourenam") return "labour6";
-  if (h === "status" || h === "statuskerja") return "status";
-  if (h === "leadjobdescription" || h === "deskripsikerja" || h === "leadjob" || h === "laporanaktivitasmekanikleadjobdescription" || h === "laporanaktivitasmekanik") return "leadJobDescription";
-
-  // Failure Information
-  if (h === "customer" || h === "pelanggan") return "customer";
-  if (h === "finumber" || h === "nomorfi") return "fiNumber";
-  if (h === "fidate" || h === "tanggalfi") return "fiDate";
-  if (h === "fiaging" || h === "fiagingdays") return "fiAging";
-  if (h === "fistatus" || h === "statusfi") return "fiStatus";
-  if (h === "partstatus" || h === "statuspart") return "partStatus";
-  if (h === "planningprogress" || h === "progressplanning") return "planningProgress";
-  if (h === "evidentpm" || h === "evident") return "evidentPm";
-  if (h === "createby" || h === "dibuatoleh") return "createBy";
+  if (segment === 'service_request') {
+    if (h === "customername" || h === "namacustomer") return "customerName";
+    if (h === "srnumber" || h === "nomorsr") return "srNumber";
+    if (h === "wonumber" || h === "nomorwo") return "woNumber";
+    if (h === "uc3number" || h === "uc3no" || h === "nomoruc3") return "uc3Number";
+    if (h === "uc3status" || h === "statusuc3") return "uc3Status";
+    if (h === "ticketid" || h === "idticket" || h === "nomorticket") return "ticketId";
+    if (h === "srdate" || h === "tanggal" || h === "tanggalsr") return "srDate";
+    if (h === "sraging" || h === "aging" || h === "umursr") return "srAging";
+    if (h === "planningdate" || h === "tanggalplanning" || h === "jadwalplanning") return "planningDate";
+    if (h === "actiondate" || h === "tanggalaction") return "actionDate";
+    if (h === "rfudate" || h === "tanggalrfu") return "rfuDate";
+    if (h === "unitcondition" || h === "kondisiunit" || h === "kondisialat") return "unitCondition";
+    if (h === "snunit" || h === "serialnumber" || h === "sn") return "snUnit";
+    if (h === "model" || h === "tipe") return "model";
+    if (h === "issuedescription" || h === "masalah" || h === "deskripsi" || h === "deskrispisu" || h === "deskripsimasalah") return "issueDescription";
+    if (h === "location" || h === "lokasi" || h === "sektorlokasi") return "location";
+    if (h === "labour1" || h === "mekanik1" || h === "laboursatu") return "labour1";
+    if (h === "labour2" || h === "mekanik2" || h === "labourdua") return "labour2";
+    if (h === "labour3" || h === "mekanik3" || h === "labourtiga") return "labour3";
+    if (h === "labour4" || h === "mekanik4" || h === "labourempat") return "labour4";
+    if (h === "labour5" || h === "mekanik5" || h === "labourlima") return "labour5";
+    if (h === "labour6" || h === "mekanik6" || h === "labourenam") return "labour6";
+    if (h === "status" || h === "statuskerja") return "status";
+    if (h === "leadjobdescription" || h === "deskripsikerja" || h === "leadjob" || h === "laporanaktivitasmekanikleadjobdescription" || h === "laporanaktivitasmekanik") return "leadJobDescription";
+    if (h === "aksi") return "aksi";
+  }
   
-  // Surat Tugas / KPI
-  if (h === "namamekanik" || h === "mechanicname") return "mechanicName";
-  if (h === "statustugas" || h === "status") return "statusTugas";
-  if (h === "stmulai" || h === "startdate") return "startDate";
-  if (h === "stselesai" || h === "enddate") return "endDate";
-  if (h === "lastdatedeclaration") return "lastDateDeclaration";
-  if (h === "deklarasi" || h === "deklarasi") return "deklarasi";
-  if (h === "harist") return "hariSt";
-  if (h === "pencapaiankpiseninjumat" || h === "pencapaiankpi") return "kpiScore";
-  if (h === "tindakan" || h === "action") return "action";
+  if (segment === 'failure_information') {
+    if (h === "customer" || h === "pelanggan") return "customer";
+    if (h === "finumber" || h === "nomorfi") return "fiNumber";
+    if (h === "fidate" || h === "tanggalfi") return "fiDate";
+    if (h === "fiaging" || h === "fiagingdays") return "fiAging";
+    if (h === "fistatus" || h === "statusfi" || h === "status") return "fiStatus";
+    if (h === "partstatus" || h === "statuspart") return "partStatus";
+    if (h === "planningprogress" || h === "progressplanning") return "planningProgress";
+    if (h === "evidentpm" || h === "evident") return "evidentPm";
+    if (h === "createby" || h === "dibuatoleh") return "createBy";
+    if (h === "action" || h === "tindakan") return "action";
+  }
+  
+  if (segment === 'surat_tugas') {
+    if (h === "namamekanik" || h === "mechanicname") return "mechanicName";
+    if (h === "statustugas" || h === "status") return "statusTugas";
+    if (h === "stmulai" || h === "startdate") return "startDate";
+    if (h === "stselesai" || h === "enddate") return "endDate";
+    if (h === "lastdatedeclaration") return "lastDateDeclaration";
+    if (h === "deklarasi") return "deklarasi";
+    if (h === "harist") return "hariSt";
+    if (h === "pencapaiankpiseninjumat" || h === "pencapaiankpi") return "kpiScore";
+    if (h === "tindakan" || h === "action") return "action";
+  }
   
   return null;
 }
@@ -169,25 +205,33 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var postData = JSON.parse(e.postData.contents);
     var action = postData.action;
-    var payload = postData.data;
-    var type = postData.type; // can be 'service_request' or 'failure_information'
+    var payload = postData.data || postData.payload;
+    var type = postData.type;
 
     var sheets = ss.getSheets();
-    var sheet = ss.getActiveSheet(); // default
+    var sheet = ss.getActiveSheet();
 
-    // Smart Sheet Detection
-    // If it's a failure information payload, look for a sheet with 'FI NUMBER' header
-    // If service request, look for 'SR NUMBER' or 'WO NUMBER'
     for (var s = 0; s < sheets.length; s++) {
        var sHeaders = sheets[s].getDataRange().getValues()[0] || [];
        var sHeadersStr = sHeaders.join('').toUpperCase();
        
-       if (type === 'failure_information' || (payload && payload.fiNumber !== undefined)) {
+       var firstPayloadItem = null;
+       if (payload) {
+         if (Array.isArray(payload)) {
+           if (payload.length > 0) {
+             firstPayloadItem = payload[0];
+           }
+         } else {
+           firstPayloadItem = payload;
+         }
+       }
+
+       if (type === 'failure_information' || (firstPayloadItem && firstPayloadItem.fiNumber !== undefined)) {
          if (sHeadersStr.indexOf('FI NUMBER') > -1) {
             sheet = sheets[s];
             break;
          }
-       } else if (type === 'surat_tugas' || (payload && payload.mechanicName !== undefined)) {
+       } else if (type === 'surat_tugas' || (firstPayloadItem && firstPayloadItem.mechanicName !== undefined)) {
          if (sHeadersStr.indexOf('NAMA MEKANIK') > -1 || sHeadersStr.indexOf('ST MULAI') > -1) {
             sheet = sheets[s];
             break;
@@ -203,99 +247,153 @@ function doPost(e) {
     var rows = sheet.getDataRange().getValues();
     var headers = rows[0].map(function(h) { return h.toString().trim(); });
 
-    // Function to get writing columns order
-    function getOrderedRowData(item) {
-      var rowData = new Array(headers.length);
-      for (var j = 0; j < headers.length; j++) {
-        var key = mapHeaderToKey(headers[j]);
-        if (key) {
-           rowData[j] = item[key] !== undefined ? item[key] : "";
-        } else {
-           rowData[j] = "";
-        }
+    // Classify columns into segment ranges
+    var colSegments = new Array(headers.length);
+    var currentSegment = 'service_request';
+    for (var j = 0; j < headers.length; j++) {
+      var hClean = headers[j].toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (hClean === 'customer' || hClean === 'finumber') {
+        currentSegment = 'failure_information';
+      } else if (hClean === 'namamekanik' || hClean === 'mechanicname') {
+        currentSegment = 'surat_tugas';
       }
-      return rowData;
+      colSegments[j] = currentSegment;
     }
 
+    // Find the columns that are target for this action
+    var targetCols = [];
+    for (var j = 0; j < headers.length; j++) {
+      if (colSegments[j] === type) {
+        targetCols.push(j);
+      }
+    }
+
+    if (targetCols.length === 0) {
+       for (var j = 0; j < headers.length; j++) {
+         targetCols.push(j);
+       }
+    }
+
+    var minColIdx = targetCols[0];
+    var maxColIdx = targetCols[targetCols.length - 1];
+    var numCols = maxColIdx - minColIdx + 1;
+
     if (action === 'add') {
-       var newRow = getOrderedRowData(payload);
-       
-       // Cari baris terakhir yang benar-benar ada isinya (mengabaikan baris format kosong)
-       var realLastRow = 1;
-       for (var r = rows.length - 1; r >= 0; r--) {
-         var isEmptyRow = true;
-         for (var c = 0; c < rows[r].length; c++) {
-           if (rows[r][c] !== undefined && rows[r][c] !== null && rows[r][c].toString().trim() !== '') {
-             isEmptyRow = false; 
+       var targetRowIdx = 2;
+       var foundEmpty = false;
+       for (var r = 1; r < rows.length; r++) {
+         var isEmpty = true;
+         for (var k = 0; k < targetCols.length; k++) {
+           var val = rows[r][targetCols[k]];
+           if (val !== undefined && val !== null && val.toString().trim() !== "") {
+             isEmpty = false;
              break;
            }
          }
-         if (!isEmptyRow) {
-           realLastRow = r + 1;
+         if (isEmpty) {
+           targetRowIdx = r + 1;
+           foundEmpty = true;
            break;
          }
        }
+       if (!foundEmpty) {
+         targetRowIdx = rows.length + 1;
+       }
+
+       var maxRows = sheet.getMaxRows();
+       if (targetRowIdx > maxRows) {
+         sheet.insertRowsAfter(maxRows, targetRowIdx - maxRows);
+       }
        
-       sheet.getRange(realLastRow + 1, 1, 1, newRow.length).setValues([newRow]);
+       for (var k = 0; k < targetCols.length; k++) {
+         var colIndex = targetCols[k] + 1;
+         var hName = headers[targetCols[k]];
+         var key = mapHeaderToKey(hName, type);
+         var val = (key && payload[key] !== undefined && payload[key] !== null) ? payload[key] : "";
+         sheet.getRange(targetRowIdx, colIndex).setValue(val);
+       }
        return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
     } 
     
     if (action === 'bulk_replace') {
-       // Hapus data lama mulai dari baris ke-2 hingga baris terakhir
        var maxRows = sheet.getMaxRows();
        if (maxRows > 1) {
-         // Kosongkan konten saja agar format tidak hilang
-         sheet.getRange(2, 1, maxRows - 1, sheet.getLastColumn()).clearContent();
+         sheet.getRange(2, minColIdx + 1, maxRows - 1, numCols).clearContent();
        }
        
-       // Masukkan semua data yang dikirim dengan menyusun kolom sesuai header
        if (payload && Array.isArray(payload)) {
-         var newRows = [];
+         var valuesToWrite = [];
          for (var i = 0; i < payload.length; i++) {
-           newRows.push(getOrderedRowData(payload[i]));
+           var item = payload[i];
+           var rowValues = new Array(numCols);
+           for (var c = 0; c < numCols; c++) {
+             var hIdx = minColIdx + c;
+             var hName = headers[hIdx];
+             var key = mapHeaderToKey(hName, type);
+             rowValues[c] = (key && item[key] !== undefined && item[key] !== null) ? item[key] : "";
+           }
+           valuesToWrite.push(rowValues);
          }
-         if (newRows.length > 0) {
-            sheet.getRange(2, 1, newRows.length, newRows[0].length).setValues(newRows);
+         
+         if (valuesToWrite.length > 0) {
+           var neededRows = valuesToWrite.length + 1;
+           maxRows = sheet.getMaxRows();
+           if (neededRows > maxRows) {
+             sheet.insertRowsAfter(maxRows, neededRows - maxRows);
+           }
+           sheet.getRange(2, minColIdx + 1, valuesToWrite.length, numCols).setValues(valuesToWrite);
          }
        }
        
        return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // For update / delete, we find by ID (simulated by row index)
     if (action === 'update' || action === 'delete') {
        var targetRowIdx = -1;
-       var keyToMatch = payload.fiNumber ? payload.fiNumber : (payload.mechanicName ? payload.mechanicName : payload.srNumber);
+       var keyToMatch = type === 'service_request' ? payload.srNumber : (type === 'failure_information' ? payload.fiNumber : payload.mechanicName);
+       var keyMappedName = type === 'service_request' ? 'srNumber' : (type === 'failure_information' ? 'fiNumber' : 'mechanicName');
+       
        var headerKeyIdx = -1;
-
-       // Find the column index for FI NUMBER or SR NUMBER or NAMA MEKANIK
-       for (var k=0; k<headers.length; k++) {
-           var hMapped = mapHeaderToKey(headers[k]);
-           if (hMapped === "fiNumber" || hMapped === "srNumber" || hMapped === "mechanicName") {
-               headerKeyIdx = k; break;
-           }
+       for (var k = 0; k < targetCols.length; k++) {
+         var hIdx = targetCols[k];
+         var hMapped = mapHeaderToKey(headers[hIdx], type);
+         if (hMapped === keyMappedName) {
+           headerKeyIdx = hIdx;
+           break;
+         }
        }
 
        if (headerKeyIdx > -1) {
-           // Find matching row
-           for (var r=1; r<rows.length; r++) {
+           for (var r = 1; r < rows.length; r++) {
                if (rows[r][headerKeyIdx] == keyToMatch) {
-                   targetRowIdx = r; break;
+                   targetRowIdx = r + 1;
+                   break;
                }
            }
        }
 
        if (targetRowIdx > -1) {
            if (action === 'delete') {
-               sheet.deleteRow(targetRowIdx + 1); // 1-based, +1 for header
+               var numRowsToShift = rows.length - targetRowIdx;
+               if (numRowsToShift > 0) {
+                  var blockValues = sheet.getRange(targetRowIdx + 1, minColIdx + 1, numRowsToShift, numCols).getValues();
+                  sheet.getRange(targetRowIdx, minColIdx + 1, numRowsToShift, numCols).setValues(blockValues);
+                  sheet.getRange(rows.length, minColIdx + 1, 1, numCols).clearContent();
+               } else {
+                  sheet.getRange(targetRowIdx, minColIdx + 1, 1, numCols).clearContent();
+               }
            } else {
-               var updatedRow = getOrderedRowData(payload);
-               var range = sheet.getRange(targetRowIdx + 1, 1, 1, headers.length);
-               range.setValues([updatedRow]);
+               for (var k = 0; k < targetCols.length; k++) {
+                  var colIndex = targetCols[k] + 1;
+                  var hName = headers[targetCols[k]];
+                  var key = mapHeaderToKey(hName, type);
+                  var val = (key && payload[key] !== undefined && payload[key] !== null) ? payload[key] : "";
+                  sheet.getRange(targetRowIdx, colIndex).setValue(val);
+               }
            }
            return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
        } else {
-           return ContentService.createTextOutput(JSON.stringify({ status: 'not_found', msg: 'Bisa jadi baris tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
+           return ContentService.createTextOutput(JSON.stringify({ status: 'not_found', msg: 'Baris tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
        }
     }
     

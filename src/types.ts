@@ -29,6 +29,7 @@ export interface ServiceRequest {
   status: string; // e.g. "Inprogress" | "Delay Labour" | "RFU_LEAD J"
   leadJobDescription: string;
   ticketId?: string;
+  aksi?: string;
 }
 
 export interface SpreadsheetConfig {

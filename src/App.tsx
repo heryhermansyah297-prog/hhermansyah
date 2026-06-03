@@ -191,6 +191,9 @@ export default function App() {
       }
       
       let srData: any[] = [];
+      let shouldUpdateServiceRequests = true;
+      let shouldUpdateFailureInformations = true;
+      let shouldUpdateSuratTugas = true;
       
       if (Array.isArray(rawData)) {
         // Compatibility for old Apps Script (returning pure array)
@@ -198,17 +201,36 @@ export default function App() {
            // It's an array of Failure Informations
            localStorage.setItem('failure_informations', JSON.stringify(rawData));
            window.dispatchEvent(new Event('fiDataUpdated'));
+           shouldUpdateServiceRequests = false;
+           shouldUpdateSuratTugas = false;
         } else {
            // It's an array of Service Requests
            srData = rawData;
+           shouldUpdateFailureInformations = false;
+           shouldUpdateSuratTugas = false;
         }
       } else if (rawData && typeof rawData === 'object') {
-        if (rawData.serviceRequests) srData = rawData.serviceRequests;
-        if (rawData.failureInformations) {
+        if (rawData.sheetsFound) {
+          shouldUpdateServiceRequests = !!rawData.sheetsFound.serviceRequests;
+          shouldUpdateFailureInformations = !!rawData.sheetsFound.failureInformations;
+          shouldUpdateSuratTugas = !!rawData.sheetsFound.suratTugas;
+        } else {
+          // Compatibility for scripts without sheetsFound
+          shouldUpdateServiceRequests = rawData.serviceRequests !== undefined;
+          shouldUpdateFailureInformations = rawData.failureInformations && rawData.failureInformations.length > 0;
+          shouldUpdateSuratTugas = rawData.suratTugas && rawData.suratTugas.length > 0;
+        }
+
+        if (shouldUpdateServiceRequests && rawData.serviceRequests) {
+          srData = rawData.serviceRequests;
+        }
+        
+        if (shouldUpdateFailureInformations && rawData.failureInformations) {
           localStorage.setItem('failure_informations', JSON.stringify(rawData.failureInformations));
           window.dispatchEvent(new Event('fiDataUpdated'));
         }
-        if (rawData.suratTugas && rawData.suratTugas.length > 0) {
+
+        if (shouldUpdateSuratTugas && rawData.suratTugas) {
           const assignmentsRecord: Record<string, any> = {};
           rawData.suratTugas.forEach((st: any) => {
              if (st.mechanicName) {
@@ -228,40 +250,47 @@ export default function App() {
         throw new Error('Format balikan JSON tidak valid (bukan Array dan bukan Object yang diharapkan).');
       }
 
-      // Map rawData to guarantee id presence
-      const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
-        id: item.id || (idx + 1).toString(),
-        srNumber: item.srNumber || '',
-        woNumber: item.woNumber || '',
-        uc3Number: item.uc3Number || '',
-        uc3Status: item.uc3Status || 'None',
-        srDate: item.srDate || '',
-        srAging: parseInt(item.srAging) || 0,
-        planningDate: item.planningDate || '',
-        actionDate: item.actionDate || '',
-        rfuDate: item.rfuDate || '',
-        unitCondition: item.unitCondition || 'Running Without Trouble',
-        snUnit: item.snUnit || '',
-        model: item.model || 'HX210HD',
-        issueDescription: item.issueDescription || '',
-        location: item.location || '',
-        labour1: item.labour1 || '',
-        labour2: item.labour2 || '',
-        labour3: item.labour3 || '',
-        labour4: item.labour4 || '',
-        labour5: item.labour5 || '',
-        labour6: item.labour6 || '',
-        status: item.status || 'Inprogress',
-        leadJobDescription: item.leadJobDescription || '',
-        ticketId: item.ticketId || ''
-      }));
+      if (shouldUpdateServiceRequests) {
+        // Map rawData to guarantee id presence
+        const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
+          id: item.id || (idx + 1).toString(),
+          srNumber: item.srNumber || '',
+          woNumber: item.woNumber || '',
+          uc3Number: item.uc3Number || '',
+          uc3Status: item.uc3Status || 'None',
+          srDate: item.srDate || '',
+          srAging: parseInt(item.srAging) || 0,
+          planningDate: item.planningDate || '',
+          actionDate: item.actionDate || '',
+          rfuDate: item.rfuDate || '',
+          unitCondition: item.unitCondition || 'Running Without Trouble',
+          snUnit: item.snUnit || '',
+          model: item.model || 'HX210HD',
+          issueDescription: item.issueDescription || '',
+          location: item.location || '',
+          labour1: item.labour1 || '',
+          labour2: item.labour2 || '',
+          labour3: item.labour3 || '',
+          labour4: item.labour4 || '',
+          labour5: item.labour5 || '',
+          labour6: item.labour6 || '',
+          status: item.status || 'Inprogress',
+          leadJobDescription: item.leadJobDescription || '',
+          ticketId: item.ticketId || '',
+          aksi: item.aksi || ''
+        }));
 
-      saveRequestsToStateAndStorage(sanitized);
+        saveRequestsToStateAndStorage(sanitized);
+      }
+      
       setScriptUrl(url);
       localStorage.setItem('gs_script_url', url);
       
       if (!isAutoSync) {
-        alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n(Service Requests: ${sanitized.length}, Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0}, KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0})`);
+        const srMsg = shouldUpdateServiceRequests ? `Service Requests: ${srData.length} baris` : 'Service Requests: Dipertahankan (tidak ada di spreadsheet)';
+        const fiMsg = shouldUpdateFailureInformations ? `Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0} baris` : 'Failure Informations: Dipertahankan (tidak ada di spreadsheet)';
+        const stMsg = shouldUpdateSuratTugas ? `KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0} baris` : 'KPI & Surat Tugas: Dipertahankan (tidak ada di spreadsheet)';
+        alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n\n- ${srMsg}\n- ${fiMsg}\n- ${stMsg}`);
       }
     } catch (err: any) {
       console.error('Apps script error:', err);
