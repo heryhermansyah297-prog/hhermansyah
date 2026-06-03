@@ -150,6 +150,10 @@ function mapHeaderToKey(header) {
   if (h === "stmulai" || h === "startdate") return "startDate";
   if (h === "stselesai" || h === "enddate") return "endDate";
   if (h === "lastdatedeclaration") return "lastDateDeclaration";
+  if (h === "deklarasi" || h === "deklarasi") return "deklarasi";
+  if (h === "harist") return "hariSt";
+  if (h === "pencapaiankpiseninjumat" || h === "pencapaiankpi") return "kpiScore";
+  if (h === "tindakan" || h === "action") return "action";
   
   return null;
 }
@@ -209,7 +213,24 @@ function doPost(e) {
 
     if (action === 'add') {
        var newRow = getOrderedRowData(payload);
-       sheet.appendRow(newRow);
+       
+       // Cari baris terakhir yang benar-benar ada isinya (mengabaikan baris format kosong)
+       var realLastRow = 1;
+       for (var r = rows.length - 1; r >= 0; r--) {
+         var isEmptyRow = true;
+         for (var c = 0; c < rows[r].length; c++) {
+           if (rows[r][c] !== undefined && rows[r][c] !== null && rows[r][c].toString().trim() !== '') {
+             isEmptyRow = false; 
+             break;
+           }
+         }
+         if (!isEmptyRow) {
+           realLastRow = r + 1;
+           break;
+         }
+       }
+       
+       sheet.getRange(realLastRow + 1, 1, 1, newRow.length).setValues([newRow]);
        return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
     } 
     

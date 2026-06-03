@@ -94,13 +94,70 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
     const scriptUrl = localStorage.getItem('gs_script_url');
     if (scriptUrl) {
       try {
+        const maxDeclDays = assignmentToSave.statusTugas === 'Lumpsum' ? 15 : 14;
+        let declarationElapsed = 0;
+        if (assignmentToSave.lastDateDeclaration) {
+          const lastDecl = new Date(assignmentToSave.lastDateDeclaration);
+          const today = new Date();
+          if (!isNaN(lastDecl.getTime())) {
+            declarationElapsed = Math.floor((today.getTime() - lastDecl.getTime()) / (1000 * 60 * 60 * 24));
+          }
+        } else if (assignmentToSave.startDate) {
+          const start = new Date(assignmentToSave.startDate);
+          const today = new Date();
+          if (!isNaN(start.getTime())) {
+            declarationElapsed = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          }
+        }
+        const deklarasi = Math.max(0, Math.round((declarationElapsed / maxDeclDays) * 100));
+
+        let durationDays = 0;
+        let weekdayCount = 0;
+        if (assignmentToSave.startDate && assignmentToSave.endDate) {
+          const start = new Date(assignmentToSave.startDate);
+          const end = new Date(assignmentToSave.endDate);
+          if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
+            durationDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+            const tempDate = new Date(start);
+            if (end.getTime() - start.getTime() < 366 * 24 * 60 * 60 * 1000) {
+              while (tempDate <= end) {
+                const day = tempDate.getDay();
+                if (day >= 1 && day <= 5) weekdayCount++;
+                tempDate.setDate(tempDate.getDate() + 1);
+              }
+            }
+          }
+        }
+        const kpiScore = assignmentToSave.startDate && assignmentToSave.endDate 
+          ? Math.min(100, Math.round((weekdayCount / 5) * 100))
+          : 0;
+
+        let grade = '-';
+        if (assignmentToSave.startDate && assignmentToSave.endDate) {
+          if (kpiScore >= 100) grade = 'A+';
+          else if (kpiScore >= 90) grade = 'A';
+          else if (kpiScore >= 80) grade = 'B+';
+          else if (kpiScore >= 70) grade = 'B';
+          else if (kpiScore >= 60) grade = 'C';
+          else if (kpiScore > 0) grade = 'D';
+          else grade = 'F';
+        }
+
+        const payloadWithMetrics = {
+          ...assignmentToSave,
+          deklarasi: deklarasi + '%',
+          hariSt: durationDays > 0 ? durationDays : '',
+          kpiScore: grade === '-' ? '-' : `${kpiScore}% (${grade})`,
+          action: '-'
+        };
+
         await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             action: existing.startDate || existing.statusTugas ? 'update' : 'add',
             type: 'surat_tugas',
-            data: assignmentToSave
+            data: payloadWithMetrics
           })
         });
       } catch (err) {
