@@ -45,103 +45,107 @@ export default function GoogleAppsScriptGuide({
   };
 
   const scriptCode = `function doGet(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheets = ss.getSheets();
-  var result = {
-    serviceRequests: [],
-    failureInformations: [],
-    suratTugas: [],
-    sheetsFound: {
-      serviceRequests: false,
-      failureInformations: false,
-      suratTugas: false
-    }
-  };
-  
-  for (var s = 0; s < sheets.length; s++) {
-    var sheet = sheets[s];
-    var rows = sheet.getDataRange().getValues();
-    if (rows.length <= 1) continue;
-    
-    var headers = rows[0].map(function(h) {
-      return h.toString().trim();
-    });
-    
-    // Classify columns into segment ranges statically based on columns of the sheet:
-    // Kolom A sampai AL (0-37): Service Requests
-    // Kolom AM sampai AW (38-48): Failure Information
-    // Kolom AX sampai BG (49-58): Surat Tugas / KPI
-    var colSegments = new Array(headers.length);
-    for (var j = 0; j < headers.length; j++) {
-      if (j >= 0 && j <= 37) {
-        colSegments[j] = 'service_request';
-        result.sheetsFound.serviceRequests = true;
-      } else if (j >= 38 && j <= 48) {
-        colSegments[j] = 'failure_information';
-        result.sheetsFound.failureInformations = true;
-      } else if (j >= 49 && j <= 58) {
-        colSegments[j] = 'surat_tugas';
-        result.sheetsFound.suratTugas = true;
-      } else {
-        colSegments[j] = 'unknown';
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheets = ss.getSheets();
+    var result = {
+      serviceRequests: [],
+      failureInformations: [],
+      suratTugas: [],
+      sheetsFound: {
+        serviceRequests: false,
+        failureInformations: false,
+        suratTugas: false
       }
-    }
+    };
     
-    for (var i = 1; i < rows.length; i++) {
-      var row = rows[i];
-      var srItem = { id: i.toString() };
-      var fiItem = { id: i.toString() };
-      var stItem = { id: i.toString() };
+    for (var s = 0; s < sheets.length; s++) {
+      var sheet = sheets[s];
+      var rows = sheet.getDataRange().getValues();
+      if (rows.length <= 1) continue;
       
-      var srHasData = false;
-      var fiHasData = false;
-      var stHasData = false;
+      var headers = rows[0].map(function(h) {
+        return h.toString().trim();
+      });
       
+      // Classify columns into segment ranges statically based on columns of the sheet:
+      // Kolom A sampai AL (0-37): Service Requests
+      // Kolom AM sampai AW (38-48): Failure Information
+      // Kolom AX sampai BG (49-58): Surat Tugas / KPI
+      var colSegments = new Array(headers.length);
       for (var j = 0; j < headers.length; j++) {
-        var header = headers[j];
-        var val = row[j];
-        
-        if (val instanceof Date) {
-          val = Utilities.formatDate(val, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
+        if (j >= 0 && j <= 37) {
+          colSegments[j] = 'service_request';
+          result.sheetsFound.serviceRequests = true;
+        } else if (j >= 38 && j <= 48) {
+          colSegments[j] = 'failure_information';
+          result.sheetsFound.failureInformations = true;
+        } else if (j >= 49 && j <= 58) {
+          colSegments[j] = 'surat_tugas';
+          result.sheetsFound.suratTugas = true;
+        } else {
+          colSegments[j] = 'unknown';
         }
+      }
+      
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        var srItem = { id: i.toString() };
+        var fiItem = { id: i.toString() };
+        var stItem = { id: i.toString() };
         
-        var segment = colSegments[j];
-        var key = mapHeaderToKey(header, segment);
-        if (key) {
-          if (segment === 'service_request') {
-            srItem[key] = val;
-            if (val !== undefined && val !== null && val.toString().trim() !== "") {
-              srHasData = true;
-            }
-          } else if (segment === 'failure_information') {
-            fiItem[key] = val;
-            if (val !== undefined && val !== null && val.toString().trim() !== "") {
-              fiHasData = true;
-            }
-          } else if (segment === 'surat_tugas') {
-            stItem[key] = val;
-            if (val !== undefined && val !== null && val.toString().trim() !== "") {
-              stHasData = true;
+        var srHasData = false;
+        var fiHasData = false;
+        var stHasData = false;
+        
+        for (var j = 0; j < headers.length; j++) {
+          var header = headers[j];
+          var val = row[j];
+          
+          if (val instanceof Date) {
+            val = Utilities.formatDate(val, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
+          }
+          
+          var segment = colSegments[j];
+          var key = mapHeaderToKey(header, segment);
+          if (key) {
+            if (segment === 'service_request') {
+              srItem[key] = val;
+              if (val !== undefined && val !== null && val.toString().trim() !== "") {
+                srHasData = true;
+              }
+            } else if (segment === 'failure_information') {
+              fiItem[key] = val;
+              if (val !== undefined && val !== null && val.toString().trim() !== "") {
+                fiHasData = true;
+              }
+            } else if (segment === 'surat_tugas') {
+              stItem[key] = val;
+              if (val !== undefined && val !== null && val.toString().trim() !== "") {
+                stHasData = true;
+              }
             }
           }
         }
-      }
-      
-      if (srHasData && srItem.srNumber) {
-        srItem.status = srItem.status || "Inprogress";
-        result.serviceRequests.push(srItem);
-      }
-      if (fiHasData && fiItem.fiNumber) {
-        result.failureInformations.push(fiItem);
-      }
-      if (stHasData && stItem.mechanicName) {
-        result.suratTugas.push(stItem);
+        
+        if (srHasData && srItem.srNumber) {
+          srItem.status = srItem.status || "Inprogress";
+          result.serviceRequests.push(srItem);
+        }
+        if (fiHasData && fiItem.fiNumber) {
+          result.failureInformations.push(fiItem);
+        }
+        if (stHasData && stItem.mechanicName) {
+          result.suratTugas.push(stItem);
+        }
       }
     }
+    
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
-  
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function mapHeaderToKey(header, segment) {
