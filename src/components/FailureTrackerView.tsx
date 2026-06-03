@@ -589,7 +589,7 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
 
                     {/* FI AGING */}
                     <td className="px-3 py-2.5 text-center font-mono font-bold text-amber-500">
-                      {item.fiAging !== undefined && item.fiAging !== null && item.fiAging !== 0 ? (
+                      {item.fiAging !== undefined && item.fiAging !== null && item.fiAging !== '' && item.fiAging !== 0 ? (
                         <span>{item.fiAging} Hari</span>
                       ) : (
                         <span className="text-zinc-650 font-normal">-</span>
@@ -632,29 +632,37 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
 
                     {/* PART STATUS */}
                     <td className="px-3 py-2.5">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${
-                          (item.partStatus || 'Waiting Part') === 'Ready for Install'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/15'
-                        }`}
-                      >
-                        <span className={`w-1 h-1 rounded-full ${
-                          (item.partStatus || 'Waiting Part') === 'Ready for Install' 
-                            ? 'bg-emerald-400' 
-                            : 'bg-amber-400'
-                        }`} />
-                        {item.partStatus || 'Waiting Part'}
-                      </span>
+                      {item.partStatus ? (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest ${
+                            item.partStatus === 'Ready for Install'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
+                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/15'
+                          }`}
+                        >
+                          <span className={`w-1 h-1 rounded-full ${
+                            item.partStatus === 'Ready for Install' 
+                              ? 'bg-emerald-400' 
+                              : 'bg-amber-400'
+                          }`} />
+                          {item.partStatus}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500 font-medium">-</span>
+                      )}
                     </td>
 
                     {/* PLANNING PROGRESS */}
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 text-zinc-400 font-mono">
-                        <Calendar className="w-3 h-3 text-zinc-500" />
-                        <span>
-                          {item.planningProgress ? item.planningProgress.split('-').reverse().join('-') : 'Belum Ada'}
-                        </span>
+                        {item.planningProgress ? (
+                          <>
+                            <Calendar className="w-3 h-3 text-zinc-500" />
+                            <span>{item.planningProgress.split('-').reverse().join('-')}</span>
+                          </>
+                        ) : (
+                          <span className="text-zinc-500 font-medium">-</span>
+                        )}
                       </div>
                     </td>
 

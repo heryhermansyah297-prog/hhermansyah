@@ -39,14 +39,19 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
 
   // Load from localStorage on initialization
   useEffect(() => {
-    const saved = localStorage.getItem('surat_tugas_assignments');
-    if (saved) {
-      try {
-        setAssignments(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse surat_tugas_assignments', e);
+    const loadAssignments = () => {
+      const saved = localStorage.getItem('surat_tugas_assignments');
+      if (saved) {
+        try {
+          setAssignments(JSON.parse(saved));
+        } catch (e) {
+          console.error('Failed to parse surat_tugas_assignments', e);
+        }
       }
-    }
+    };
+    
+    loadAssignments();
+    
     const savedDeleted = localStorage.getItem('surat_tugas_deleted');
     if (savedDeleted) {
       try {
@@ -55,32 +60,79 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
         console.error('Failed to parse surat_tugas_deleted', e);
       }
     }
+
+    const handleUpdate = () => {
+      loadAssignments();
+    };
+
+    window.addEventListener('suratTugasUpdated', handleUpdate);
+    return () => {
+      window.removeEventListener('suratTugasUpdated', handleUpdate);
+    };
   }, []);
 
   // Save specific mechanic assignment
-  const saveAssignment = (mechanicName: string, start: string, end: string, statusTugas?: 'Surat Tugas' | 'Lumpsum', lastDateDeclaration?: string) => {
+  const saveAssignment = async (mechanicName: string, start: string, end: string, statusTugas?: 'Surat Tugas' | 'Lumpsum', lastDateDeclaration?: string) => {
     const existing = assignments[mechanicName] || { mechanicName, startDate: '', endDate: '' };
+    const assignmentToSave = {
+      ...existing,
+      mechanicName,
+      startDate: start,
+      endDate: end,
+      statusTugas,
+      lastDateDeclaration
+    };
+    
     const updated = {
       ...assignments,
-      [mechanicName]: {
-        ...existing,
-        mechanicName,
-        startDate: start,
-        endDate: end,
-        statusTugas,
-        lastDateDeclaration
-      }
+      [mechanicName]: assignmentToSave
     };
     setAssignments(updated);
     localStorage.setItem('surat_tugas_assignments', JSON.stringify(updated));
+    
+    // Sync to Google Sheets
+    const scriptUrl = localStorage.getItem('gs_script_url');
+    if (scriptUrl) {
+      try {
+        await fetch(scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: existing.startDate || existing.statusTugas ? 'update' : 'add',
+            type: 'surat_tugas',
+            data: assignmentToSave
+          })
+        });
+      } catch (err) {
+        console.error("Failed to sync surat tugas to Google Sheets", err);
+      }
+    }
   };
 
   // Clear specific assignment
-  const handleClear = (mechanicName: string) => {
+  const handleClear = async (mechanicName: string) => {
     const updated = { ...assignments };
+    const existing = updated[mechanicName];
     delete updated[mechanicName];
     setAssignments(updated);
     localStorage.setItem('surat_tugas_assignments', JSON.stringify(updated));
+    
+    const scriptUrl = localStorage.getItem('gs_script_url');
+    if (scriptUrl && existing) {
+      try {
+        await fetch(scriptUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'delete',
+            type: 'surat_tugas',
+            data: { mechanicName }
+          })
+        });
+      } catch (err) {
+        console.error("Failed to sync delete to Google Sheets", err);
+      }
+    }
   };
 
   // Clear all assignments
@@ -92,7 +144,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
   };
 
   // Quick submit for delete mechanic
-  const submitDeleteMechanic = () => {
+  const submitDeleteMechanic = async () => {
     if (mechanicToDelete.trim()) {
       const trimmed = mechanicToDelete.trim();
       const updatedDeleted = [...deletedMechanics, trimmed];
@@ -105,6 +157,24 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
         delete updatedAssignments[trimmed];
         setAssignments(updatedAssignments);
         localStorage.setItem('surat_tugas_assignments', JSON.stringify(updatedAssignments));
+        
+        // Sync delete to Google Sheets
+        const scriptUrl = localStorage.getItem('gs_script_url');
+        if (scriptUrl) {
+          try {
+            await fetch(scriptUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({
+                action: 'delete',
+                type: 'surat_tugas',
+                data: { mechanicName: trimmed }
+              })
+            });
+          } catch (err) {
+            console.error("Failed to sync delete to Google Sheets", err);
+          }
+        }
       }
 
       setIsDeleteMechanicModalOpen(false);

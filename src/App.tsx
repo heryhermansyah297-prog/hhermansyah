@@ -170,35 +170,59 @@ export default function App() {
       const fetchUrl = url + (url.includes('?') ? '&' : '?') + 'type=all&v=' + Date.now();
       const response = await fetch(fetchUrl);
       if (!response.ok) {
-        throw new Error(`Koneksi gagal dengan status: ${response.status}`);
+        throw new Error(`Koneksi HTTP Gagal (Status ${response.status}). Pastikan URL Apps Script benar.`);
       }
       
       let rawData;
+      const textData = await response.text();
+      
+      if (textData.trim().startsWith('<')) {
+        console.error("Received HTML response instead of JSON:", textData.substring(0, 200));
+        throw new Error("Script mengembalikan halaman Web/HTML. ⚠️ SOLUSI: 1) Deploy ulang Apps Script Anda. 2) Pilih tipe 'Web App'. 3) Pada pengaturan akses 'Who has access', pilih 'Anyone'.");
+      }
+
       try {
-        const textData = await response.text();
-        if (textData.trim().startsWith('<')) {
-          throw new Error("Script mengembalikan halaman Web/HTML, bukan data JSON. Pastikan saat deploy Apps Script, pilih 'Who has access: Anyone' (Siapa saja) dan URL yang dimasukkan berakhiran /exec.");
-        }
         rawData = JSON.parse(textData);
       } catch (e: any) {
-        if (e.message.includes("Script mengembalikan")) {
-          throw e; // rethrow the specific HTML error
-        }
-        throw new Error(`Gagal memparsing data JSON. Pastikan Web App diset ke Anyone. Detail: ${e.message}`);
+        throw new Error(`Gagal memparsing JSON. Data dari server tidak sesuai format. Detail: ${e.message}`);
       }
       
       let srData: any[] = [];
       
       if (Array.isArray(rawData)) {
-        srData = rawData;
+        // Compatibility for old Apps Script (returning pure array)
+        if (rawData.length > 0 && rawData[0].fiNumber) {
+           // It's an array of Failure Informations
+           localStorage.setItem('failure_informations', JSON.stringify(rawData));
+           window.dispatchEvent(new Event('fiDataUpdated'));
+        } else {
+           // It's an array of Service Requests
+           srData = rawData;
+        }
       } else if (rawData && typeof rawData === 'object') {
         if (rawData.serviceRequests) srData = rawData.serviceRequests;
         if (rawData.failureInformations) {
           localStorage.setItem('failure_informations', JSON.stringify(rawData.failureInformations));
           window.dispatchEvent(new Event('fiDataUpdated'));
         }
+        if (rawData.suratTugas && rawData.suratTugas.length > 0) {
+          const assignmentsRecord: Record<string, any> = {};
+          rawData.suratTugas.forEach((st: any) => {
+             if (st.mechanicName) {
+               assignmentsRecord[st.mechanicName.toUpperCase()] = {
+                 mechanicName: st.mechanicName.toUpperCase(),
+                 startDate: st.startDate || '',
+                 endDate: st.endDate || '',
+                 lastDateDeclaration: st.lastDateDeclaration || '',
+                 statusTugas: st.statusTugas || ''
+               };
+             }
+          });
+          localStorage.setItem('surat_tugas_assignments', JSON.stringify(assignmentsRecord));
+          window.dispatchEvent(new Event('suratTugasUpdated'));
+        }
       } else {
-        throw new Error('Format data tidak valid!');
+        throw new Error('Format balikan JSON tidak valid (bukan Array dan bukan Object yang diharapkan).');
       }
 
       // Map rawData to guarantee id presence
@@ -232,10 +256,10 @@ export default function App() {
       saveRequestsToStateAndStorage(sanitized);
       setScriptUrl(url);
       localStorage.setItem('gs_script_url', url);
-      alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n(Service Requests: ${sanitized.length}, Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0})`);
+      alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n(Service Requests: ${sanitized.length}, Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0}, KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0})`);
     } catch (err: any) {
       console.error('Apps script error:', err);
-      throw new Error(`Data Apps Script gagal di-fetch. ${err.message || ''}`);
+      throw new Error(`Data Apps Script gagal di-fetch.\nDetail: ${err.message || ''}\n\n* Jika Anda baru saja memperbarui script, pastikan untuk membuat DEPLOYMENT BARU (New Deployment), bukan hanya Test Deployment.`);
     } finally {
       setIsSyncing(false);
     }

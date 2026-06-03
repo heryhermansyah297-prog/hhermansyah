@@ -49,7 +49,8 @@ export default function GoogleAppsScriptGuide({
   var sheets = ss.getSheets();
   var result = {
     serviceRequests: [],
-    failureInformations: []
+    failureInformations: [],
+    suratTugas: []
   };
   
   for (var s = 0; s < sheets.length; s++) {
@@ -63,6 +64,7 @@ export default function GoogleAppsScriptGuide({
     
     var headersStr = headers.join('').toUpperCase();
     var isFailureInfo = headersStr.indexOf('FI NUMBER') > -1;
+    var isSuratTugas = headersStr.indexOf('NAMA MEKANIK') > -1 || headersStr.indexOf('ST MULAI') > -1;
     var isServiceRequest = headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('WO NUMBER') > -1;
     
     for (var i = 1; i < rows.length; i++) {
@@ -86,6 +88,8 @@ export default function GoogleAppsScriptGuide({
       
       if (isFailureInfo && item.fiNumber) {
         result.failureInformations.push(item);
+      } else if (isSuratTugas && item.mechanicName) {
+        result.suratTugas.push(item);
       } else if (isServiceRequest && item.srNumber) {
         // Pastikan field utama bernilai default jika kosong (Service Request)
         item.srNumber = item.srNumber || "";
@@ -140,6 +144,13 @@ function mapHeaderToKey(header) {
   if (h === "evidentpm" || h === "evident") return "evidentPm";
   if (h === "createby" || h === "dibuatoleh") return "createBy";
   
+  // Surat Tugas / KPI
+  if (h === "namamekanik" || h === "mechanicname") return "mechanicName";
+  if (h === "statustugas" || h === "status") return "statusTugas";
+  if (h === "stmulai" || h === "startdate") return "startDate";
+  if (h === "stselesai" || h === "enddate") return "endDate";
+  if (h === "lastdatedeclaration") return "lastDateDeclaration";
+  
   return null;
 }
 
@@ -161,8 +172,13 @@ function doPost(e) {
        var sHeaders = sheets[s].getDataRange().getValues()[0] || [];
        var sHeadersStr = sHeaders.join('').toUpperCase();
        
-       if (payload && payload.fiNumber !== undefined) {
+       if (type === 'failure_information' || (payload && payload.fiNumber !== undefined)) {
          if (sHeadersStr.indexOf('FI NUMBER') > -1) {
+            sheet = sheets[s];
+            break;
+         }
+       } else if (type === 'surat_tugas' || (payload && payload.mechanicName !== undefined)) {
+         if (sHeadersStr.indexOf('NAMA MEKANIK') > -1 || sHeadersStr.indexOf('ST MULAI') > -1) {
             sheet = sheets[s];
             break;
          }
@@ -199,17 +215,14 @@ function doPost(e) {
     
     // For update / delete, we find by ID (simulated by row index)
     if (action === 'update' || action === 'delete') {
-       var id = parseInt(payload.id);
-       // Instead of relying on payload.id (since our random IDs are strings like "fi-1234"),
-       // we should find the actual row by comparing the ID column if it exists, or SR NUMBER / FI NUMBER!
        var targetRowIdx = -1;
-       var keyToMatch = payload.fiNumber ? payload.fiNumber : payload.srNumber;
+       var keyToMatch = payload.fiNumber ? payload.fiNumber : (payload.mechanicName ? payload.mechanicName : payload.srNumber);
        var headerKeyIdx = -1;
 
-       // Find the column index for FI NUMBER or SR NUMBER
+       // Find the column index for FI NUMBER or SR NUMBER or NAMA MEKANIK
        for (var k=0; k<headers.length; k++) {
            var hMapped = mapHeaderToKey(headers[k]);
-           if (hMapped === "fiNumber" || hMapped === "srNumber") {
+           if (hMapped === "fiNumber" || hMapped === "srNumber" || hMapped === "mechanicName") {
                headerKeyIdx = k; break;
            }
        }
@@ -343,8 +356,8 @@ function doPost(e) {
               </button>
             </div>
             {errorLocal && (
-              <p className="text-rose-400 text-xs mt-2.5 flex items-center gap-1.5 font-medium">
-                <span>⚠️</span> {errorLocal}
+              <p className="text-rose-400 text-xs mt-2.5 font-medium whitespace-pre-line">
+                <span className="mr-1">⚠️</span> {errorLocal}
               </p>
             )}
             {currentUrl && !errorLocal && (
