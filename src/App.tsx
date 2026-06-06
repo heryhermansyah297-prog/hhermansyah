@@ -113,6 +113,16 @@ export default function App() {
     if (initialUrl) {
       handleSyncWithGoogleAppScript(initialUrl, true).catch(e => console.error("Initial load sync failed:", e));
     }
+    
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(() => {
+        const savedUrl = localStorage.getItem('gs_script_url');
+        if (savedUrl) {
+            handleSyncWithGoogleAppScript(savedUrl, true).catch(e => console.error("Auto-sync failed:", e));
+        }
+    }, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Save requests to localstorage whenever it changes
@@ -328,13 +338,15 @@ export default function App() {
     // Push to Google Apps Script if sync is active
     if (scriptUrl) {
       try {
-        await fetch(scriptUrl, {
+        const res = await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: reqData.id ? 'update' : 'add', type: 'service_request', data: freshData })
         });
+        if (!res.ok) throw new Error('CORS/Server Error');
       } catch (err) {
         console.error("Failed to sync structural change to Google Sheets", err);
+        alert('Data berhasil disimpan secara lokal, tetapi GAGAL disinkronisasikan ke Google Sheet (Internet/CORS issue). Mohon cek koneksi atau deployment Apps Script.');
       }
     }
   };
@@ -348,13 +360,15 @@ export default function App() {
       // Push delete event to Google Apps Script
       if (scriptUrl) {
         try {
-          await fetch(scriptUrl, {
+          const res = await fetch(scriptUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'delete', type: 'service_request', data: { id, srNumber } })
           });
+          if (!res.ok) throw new Error('CORS/Server Error');
         } catch (err) {
           console.error("Failed to sync delete to Google Sheets", err);
+          alert('Data telah dihapus lokal, tetapi GAGAL dihapus di Google Sheet. Mohon cek koneksi atau deployment Apps Script.');
         }
       }
     }

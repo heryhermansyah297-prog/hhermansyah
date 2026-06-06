@@ -14,7 +14,10 @@ interface ChartsViewProps {
 export default function ChartsView({ data }: ChartsViewProps) {
   // 1. Calculate Status Distribution (Excluding RFU)
   const nonRfuDataForStatus = React.useMemo(() => {
-    return data.filter(curr => !(curr.status || '').toLowerCase().includes('rfu'));
+    return data.filter(curr => {
+      const status = (curr.status || '').trim().toUpperCase();
+      return status !== 'RFU';
+    });
   }, [data]);
 
   const statusCounts = React.useMemo(() => {
@@ -108,14 +111,14 @@ export default function ChartsView({ data }: ChartsViewProps) {
     let rfu = 0;
 
     reqs.forEach(r => {
-      const statusLower = (r.status || '').toLowerCase();
-      if (statusLower.includes('rfu')) {
+      const statusUpper = (r.status || '').trim().toUpperCase();
+      if (statusUpper === 'RFU') {
         rfu++;
       } else if (r.unitCondition === 'Breakdown') {
         breakdown++;
-      } else if (r.status === 'Delay Labour') {
+      } else if (statusUpper === 'DELAY LABOUR') {
         delayLabour++;
-      } else if (r.status === 'Inprogress') {
+      } else if (statusUpper === 'INPROGRESS') {
         inProgress++;
       } else {
         inProgress++;
@@ -143,7 +146,7 @@ export default function ChartsView({ data }: ChartsViewProps) {
   // 3. Calculate Location Distribution (Excluding RFU status)
   const locationCounts = React.useMemo(() => {
     return data
-      .filter(curr => !(curr.status || '').toLowerCase().includes('rfu'))
+      .filter(curr => (curr.status || '').trim().toUpperCase() !== 'RFU')
       .reduce((acc, curr) => {
         const loc = curr.location || 'Tanpa Lokasi';
         acc[loc] = (acc[loc] || 0) + 1;
@@ -419,9 +422,9 @@ export default function ChartsView({ data }: ChartsViewProps) {
               {agingTimelineItems.map((item, idx) => {
                 const dateStr = formatIndonesianDate(item.srDate);
                 const isBreakdown = item.unitCondition === 'Breakdown';
-                const statusBg = (item.status || '').toLowerCase() === 'inprogress'
+                const statusBg = (item.status || '').trim().toUpperCase() === 'INPROGRESS'
                   ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/20'
-                  : (item.status || '').toLowerCase() === 'delay labour'
+                  : (item.status || '').trim().toUpperCase() === 'DELAY LABOUR'
                   ? 'bg-amber-500/15 text-amber-400 border-amber-500/20'
                   : 'bg-purple-500/15 text-purple-400 border-purple-500/20';
                 
