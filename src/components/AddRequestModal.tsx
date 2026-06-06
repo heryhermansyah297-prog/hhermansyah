@@ -395,7 +395,7 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData }: A
               >
                 <option value="Inprogress">Inprogress</option>
                 <option value="Delay Labour">Delay Labour</option>
-                <option value="RFU_LEAD J">RFU_LEAD J</option>
+                <option value="RFU">RFU</option>
                 <option value="Waiting Payment Customer">Waiting Payment Customer</option>
                 <option value="Done">Done</option>
               </select>
