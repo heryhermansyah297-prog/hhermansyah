@@ -39,7 +39,26 @@ import SuratTugasTrackerView from './components/SuratTugasTrackerView';
 
 export default function App() {
   // --- States ---
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>(() => {
+    const savedRequests = localStorage.getItem('service_requests');
+    if (savedRequests) {
+      try {
+        const parsed = JSON.parse(savedRequests);
+        return parsed.map((item: any) => ({
+          ...item,
+          labour1: item.labour1 || '',
+          labour2: item.labour2 || '',
+          labour3: item.labour3 || '',
+          labour4: item.labour4 || '',
+          labour5: item.labour5 || '',
+          labour6: item.labour6 || '',
+        }));
+      } catch (e) {
+        return INITIAL_SERVICE_REQUESTS;
+      }
+    }
+    return INITIAL_SERVICE_REQUESTS;
+  });
 
   // Helper untuk membersihkan dan menstandarkan format tanggal ke YYYY-MM-DD
   const formatDateString = (dtStr: string) => {
@@ -81,7 +100,7 @@ export default function App() {
   const [filterUc3Status, setFilterUc3Status] = useState<string>('All');
   const [filterLocation, setFilterLocation] = useState<string>('All');
 
-  // Load from localstorage on initialization
+  // Sync automatically on start if we have a URL
   useEffect(() => {
     let initialUrl = DEFAULT_SCRIPT_URL;
     const savedUrl = localStorage.getItem('gs_script_url');
@@ -94,29 +113,6 @@ export default function App() {
     if (initialUrl) {
       handleSyncWithGoogleAppScript(initialUrl, true).catch(e => console.error("Initial load sync failed:", e));
     }
-    
-    // As fallback load from storage
-    const savedRequests = localStorage.getItem('service_requests');
-    if (savedRequests) {
-      try {
-        const parsed = JSON.parse(savedRequests);
-        const mapped = parsed.map((item: any) => ({
-          ...item,
-          labour1: item.labour1 || '',
-          labour2: item.labour2 || '',
-          labour3: item.labour3 || '',
-          labour4: item.labour4 || '',
-          labour5: item.labour5 || '',
-          labour6: item.labour6 || '',
-        }));
-        setRequests(mapped);
-      } catch (e) {
-        setRequests(INITIAL_SERVICE_REQUESTS);
-      }
-    } else {
-      setRequests(INITIAL_SERVICE_REQUESTS);
-    }
-
   }, []);
 
   // Save requests to localstorage whenever it changes
