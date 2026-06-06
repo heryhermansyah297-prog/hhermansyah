@@ -163,7 +163,7 @@ export default function ChartsView({ data }: ChartsViewProps) {
   const agingTimelineItems = React.useMemo(() => {
     return [...data]
       .filter(item => {
-        const isRfu = (item.status || '').toLowerCase().includes('rfu');
+        const isRfu = (item.status || '').trim().toUpperCase() === 'RFU';
         return !isRfu && item.srDate;
       })
       .sort((a, b) => {

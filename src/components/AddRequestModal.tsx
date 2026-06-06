@@ -274,6 +274,7 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData }: A
                 className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-zinc-300 text-xs focus:outline-none focus:border-blue-500 transition-colors"
               >
                 <option value="Running Without Trouble">Running Without Trouble</option>
+                <option value="Running With Trouble">Running With Trouble</option>
                 <option value="Breakdown">Breakdown</option>
               </select>
             </div>
@@ -395,6 +396,7 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData }: A
                 <option value="Inprogress">Inprogress</option>
                 <option value="Delay Labour">Delay Labour</option>
                 <option value="RFU_LEAD J">RFU_LEAD J</option>
+                <option value="Waiting Payment Customer">Waiting Payment Customer</option>
                 <option value="Done">Done</option>
               </select>
             </div>
