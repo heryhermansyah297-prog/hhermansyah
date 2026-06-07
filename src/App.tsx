@@ -260,6 +260,7 @@ export default function App() {
         // Map rawData to guarantee id presence
         const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
           id: item.id || (idx + 1).toString(),
+          customerName: item.customerName || '',
           srNumber: item.srNumber || '',
           woNumber: item.woNumber || '',
           uc3Number: item.uc3Number || '',
