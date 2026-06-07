@@ -1160,7 +1160,7 @@ export default function App() {
         }}
         onSave={handleSaveRequest}
         editData={editingRequest}
-        uniqueMechanics={Array.from(new Set(requests.flatMap(r => [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].filter(Boolean) as string[]))).sort()}
+        uniqueMechanics={Array.from(new Set(requests.flatMap(r => [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].filter(Boolean) as (string | undefined | null)[]).filter(Boolean) as string[])).sort()}
       />
     </div>
   );
