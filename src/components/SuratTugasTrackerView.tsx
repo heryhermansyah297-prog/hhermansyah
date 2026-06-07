@@ -364,7 +364,10 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
       const rfuPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
       // Extract Surat Tugas values
-      const st = assignments[name] || { mechanicName: name, startDate: '', endDate: '' };
+      // Use case-insensitive and whitespace-insensitive lookup
+      const normalizedAssignmentKey = Object.keys(assignments).find(k => k.trim().toLowerCase() === name.trim().toLowerCase());
+      const st = (normalizedAssignmentKey ? assignments[normalizedAssignmentKey] : null) || { mechanicName: name, startDate: '', endDate: '' };
+      
       const startDate = st.startDate;
       const endDate = st.endDate;
       const statusTugas = st.statusTugas || 'Surat Tugas';
