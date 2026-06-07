@@ -125,10 +125,32 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Sync assignments on update
+  useEffect(() => {
+    const handleUpdate = () => {
+      const saved = localStorage.getItem('surat_tugas_assignments');
+      setAssignments(saved ? JSON.parse(saved) : {});
+    };
+    window.addEventListener('suratTugasUpdated', handleUpdate);
+    return () => window.removeEventListener('suratTugasUpdated', handleUpdate);
+  }, []);
+
   // Save requests to localstorage whenever it changes
   const saveRequestsToStateAndStorage = (newRequests: ServiceRequest[]) => {
     setRequests(newRequests);
     localStorage.setItem('service_requests', JSON.stringify(newRequests));
+  };
+
+  const [assignments, setAssignments] = useState<Record<string, SuratTugas>>(() => {
+    const saved = localStorage.getItem('surat_tugas_assignments');
+    return saved ? JSON.parse(saved) : {};
+  });
+  
+  // Save assignments to localstorage whenever it changes
+  const saveAssignmentsToStateAndStorage = (newAssignments: Record<string, SuratTugas>) => {
+    setAssignments(newAssignments);
+    localStorage.setItem('surat_tugas_assignments', JSON.stringify(newAssignments));
+    window.dispatchEvent(new Event('suratTugasUpdated'));
   };
 
   // --- Dynamic calculations ---
@@ -137,7 +159,16 @@ export default function App() {
     return Array.from(new Set(locations));
   }, [requests]);
 
-  // --- Filter Logic ---
+  const uniqueMechanics = useMemo(() => {
+    const names = new Set<string>();
+    requests.forEach(r => {
+      [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].forEach(labour => {
+        if (labour && labour.trim()) names.add(labour.trim());
+      });
+    });
+    Object.keys(assignments).forEach(name => names.add(name));
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [requests, assignments]);
   const filteredRequests = useMemo(() => {
     const filtered = requests.filter(req => {
       // 1. Search Query Match
@@ -1160,7 +1191,7 @@ export default function App() {
         }}
         onSave={handleSaveRequest}
         editData={editingRequest}
-        uniqueMechanics={Array.from(new Set(requests.flatMap(r => [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].filter(Boolean) as (string | undefined | null)[]).filter(Boolean) as string[])).sort()}
+        uniqueMechanics={uniqueMechanics}
       />
     </div>
   );
