@@ -282,28 +282,36 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
 
   // Extract all unique mechanics dynamically from the requests list
   const getUniqueMechanics = (): string[] => {
-    const names = new Set<string>();
+    // Map to store normalizedName -> OriginalName
+    const names = new Map<string, string>();
+    
+    // Help normalize names (lowercase, trim)
+    const normalize = (name: string) => name.trim().toLowerCase();
+
     requests.forEach(r => {
-      if (r.labour1 && r.labour1.trim()) names.add(r.labour1.trim());
-      if (r.labour2 && r.labour2.trim()) names.add(r.labour2.trim());
-      if (r.labour3 && r.labour3.trim()) names.add(r.labour3.trim());
-      if (r.labour4 && r.labour4.trim()) names.add(r.labour4.trim());
-      if (r.labour5 && r.labour5.trim()) names.add(r.labour5.trim());
-      if (r.labour6 && r.labour6.trim()) names.add(r.labour6.trim());
+      [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].forEach(labour => {
+        if (labour && labour.trim()) {
+          const norm = normalize(labour);
+          if (!names.has(norm)) {
+            names.set(norm, labour.trim());
+          }
+        }
+      });
     });
     
     // Add manually assigned mechanics from localStorage
-    Object.keys(assignments).forEach(name => names.add(name));
-    
-    // Always fallback to standard mechanics if list is empty, ensuring UI isn't blank
-    if (names.size === 0) {
-      ['Agung Kristianto', 'Agus Saputra', 'Cahya Deni', 'Eko Sulistyo', 'Rian Wijaya', 'Adi Tri', 'Aris'].forEach(name => names.add(name));
-    }
+    Object.keys(assignments).forEach(name => {
+      const norm = normalize(name);
+      if (!names.has(norm)) {
+        names.set(norm, name);
+      }
+    });
     
     // Filter out deleted mechanics
-    deletedMechanics.forEach(name => names.delete(name));
+    deletedMechanics.forEach(name => names.delete(normalize(name)));
     
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
+    // Return sorted original names
+    return Array.from(names.values()).sort((a, b) => a.localeCompare(b));
   };
 
   const uniqueMechanics = useMemo(() => getUniqueMechanics(), [requests, assignments, deletedMechanics]);
@@ -311,20 +319,21 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
   // Helper mapping: compile each mechanic with their calculated statistics
   const mechanicsCompiled = useMemo(() => {
     return uniqueMechanics.map(name => {
+      const normName = name.trim().toLowerCase();
       // Find all service requests assigned to this mechanic
       const assignedRequests = requests.filter(r => 
-        (r.labour1 || '').trim() === name ||
-        (r.labour2 || '').trim() === name ||
-        (r.labour3 || '').trim() === name ||
-        (r.labour4 || '').trim() === name ||
-        (r.labour5 || '').trim() === name ||
-        (r.labour6 || '').trim() === name
+        (r.labour1 || '').trim().toLowerCase() === normName ||
+        (r.labour2 || '').trim().toLowerCase() === normName ||
+        (r.labour3 || '').trim().toLowerCase() === normName ||
+        (r.labour4 || '').trim().toLowerCase() === normName ||
+        (r.labour5 || '').trim().toLowerCase() === normName ||
+        (r.labour6 || '').trim().toLowerCase() === normName
       );
 
-      // Active = status is NOT "RFU_LEAD J" and NOT "Done" and NOT "Resolved" and NOT empty
+      // Active = status is NOT "RFU" and NOT "Done" and NOT "Resolved" and NOT empty.
       const activeRequests = assignedRequests.filter(r => {
-        const s = (r.status || '').toLowerCase().trim();
-        return s !== '' && !s.includes('rfu') && s !== 'done' && s !== 'resolved';
+        const s = (r.status || '').trim().toUpperCase();
+        return s !== '' && s !== 'RFU' && s !== 'DONE' && s !== 'RESOLVED';
       });
 
       const activeCount = activeRequests.length;
@@ -464,6 +473,37 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
 
   return (
     <div className="space-y-4 animate-fadeIn">
+      {/* 0. Ranking Mekanik (SR Aktif) */}
+      <div className="bg-[#121214] border border-[#27272A] rounded-2xl p-5 shadow-2xl">
+        <div className="mb-5">
+          <h3 className="text-[12px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]"></span>
+            RANKING MEKANIK (TOTAL SR - UPDATE PER MINGGU)
+          </h3>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {mechanicsCompiled
+            .sort((a, b) => b.totalSR - a.totalSR)
+            .map((m, i) => (
+              <div 
+                key={i} 
+                className={`group flex items-center justify-between p-3 rounded-xl border transition-all duration-300 ${
+                  m.totalSR > 0 
+                  ? 'bg-[#18181B] border-[#27272A] hover:border-emerald-500/50 hover:bg-[#1f1f23]' 
+                  : 'bg-[#09090B] border-[#18181B] opacity-70'
+                }`}
+              >
+                <span className={`text-[11px] font-bold truncate pr-2 transition-colors ${m.totalSR > 0 ? 'text-zinc-200' : 'text-zinc-600'}`}>{m.name}</span>
+                <span className={`text-[12px] font-black px-2.5 py-0.5 rounded-full ${
+                  m.totalSR > 0 
+                  ? 'text-emerald-400 bg-emerald-500/10' 
+                  : 'text-zinc-600 bg-zinc-900'
+                }`}>{m.totalSR}</span>
+              </div>
+            ))}
+        </div>
+      </div>
+
       {/* 1. Dashboard Header Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#18181B] border border-[#27272A] rounded-2xl p-4 shadow-sm shadow-black/20">
         <div>

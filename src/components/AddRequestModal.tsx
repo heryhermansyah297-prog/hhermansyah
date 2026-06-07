@@ -12,9 +12,10 @@ interface AddRequestModalProps {
   onClose: () => void;
   onSave: (request: Omit<ServiceRequest, 'id'> & { id?: string }) => void;
   editData?: ServiceRequest | null;
+  uniqueMechanics?: string[];
 }
 
-export default function AddRequestModal({ isOpen, onClose, onSave, editData }: AddRequestModalProps) {
+export default function AddRequestModal({ isOpen, onClose, onSave, editData, uniqueMechanics = [] }: AddRequestModalProps) {
   const [formData, setFormData] = useState({
     customerName: '',
     srNumber: 'SR/PKY/05/26/0160',
@@ -313,72 +314,78 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData }: A
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Mekanik 1 (Utama)</label>
-                <input
-                  type="text"
+                <select
                   name="labour1"
                   value={formData.labour1}
                   onChange={handleChange}
-                  placeholder="Nama Mekanik 1"
                   className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                >
+                  <option value="">Pilih Mekanik...</option>
+                  {uniqueMechanics.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Mekanik 2</label>
-                <input
-                  type="text"
+                <select                
                   name="labour2"
                   value={formData.labour2}
                   onChange={handleChange}
-                  placeholder="Nama Mekanik 2"
                   className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                >
+                  <option value="">Pilih Mekanik...</option>
+                  {uniqueMechanics.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Mekanik 3</label>
-                <input
-                  type="text"
+                <select
                   name="labour3"
                   value={formData.labour3}
                   onChange={handleChange}
-                  placeholder="Nama Mekanik 3"
                   className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                >
+                  <option value="">Pilih Mekanik...</option>
+                  {uniqueMechanics.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <div>
                 <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Mekanik 4</label>
-                <input
-                  type="text"
+                <select
                   name="labour4"
                   value={formData.labour4}
                   onChange={handleChange}
-                  placeholder="Nama Mekanik 4"
                   className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                >
+                  <option value="">Pilih Mekanik...</option>
+                  {uniqueMechanics.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Mekanik 5</label>
-                <input
-                  type="text"
+                <select
                   name="labour5"
                   value={formData.labour5}
                   onChange={handleChange}
-                  placeholder="Nama Mekanik 5"
                   className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                >
+                  <option value="">Pilih Mekanik...</option>
+                  {uniqueMechanics.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Mekanik 6</label>
-                <input
-                  type="text"
+                <select
                   name="labour6"
                   value={formData.labour6}
                   onChange={handleChange}
-                  placeholder="Nama Mekanik 6"
                   className="w-full px-3 py-2.5 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                >
+                  <option value="">Pilih Mekanik...</option>
+                  {uniqueMechanics.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
             </div>
           </div>

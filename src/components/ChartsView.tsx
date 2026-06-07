@@ -160,6 +160,30 @@ export default function ChartsView({ data }: ChartsViewProps) {
       .sort((a, b) => b.value - a.value);
   }, [locationCounts]);
 
+  const mechanicRanking = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    data.forEach(r => {
+      const isRfu = (r.status || '').trim().toUpperCase() === 'RFU';
+      const isDone = (r.status || '').trim().toUpperCase() === 'DONE';
+      const isResolved = (r.status || '').trim().toUpperCase() === 'RESOLVED';
+      
+      // If it's an active request (not RFU, Done, Resolved)
+      if (!isRfu && !isDone && !isResolved && (r.status || '').trim() !== '') {
+        [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].forEach(name => {
+          if (name && name.trim()) {
+            const n = name.trim();
+            counts[n] = (counts[n] || 0) + 1;
+          }
+        });
+      }
+    });
+    
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [data]);
+
   const maxLocCount = Math.max(...locations.map(l => l.value), 1);
 
   // 4. Compact Timeline of Service Request Aging (Excluding RFU, sorted by SR Date)

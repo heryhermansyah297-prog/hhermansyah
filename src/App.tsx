@@ -139,7 +139,7 @@ export default function App() {
 
   // --- Filter Logic ---
   const filteredRequests = useMemo(() => {
-    return requests.filter(req => {
+    const filtered = requests.filter(req => {
       // 1. Search Query Match
       const matchesSearch = 
         (req.srNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -166,6 +166,22 @@ export default function App() {
       const matchesLocation = filterLocation === 'All' || req.location === filterLocation;
 
       return matchesSearch && matchesCondition && matchesStatus && matchesUc3Status && matchesLocation;
+    });
+
+    // Custom sort by status: Inprogress, Delay Labour, Waiting Payment Customer, RFU
+    const statusOrder: Record<string, number> = {
+      'Inprogress': 1,
+      'Delay Labour': 2,
+      'Waiting Payment Customer': 3,
+      'RFU': 4
+    };
+
+    return filtered.sort((a, b) => {
+      const statusA = (a.status || '').trim();
+      const statusB = (b.status || '').trim();
+      const orderA = statusOrder[statusA] || 99;
+      const orderB = statusOrder[statusB] || 99;
+      return orderA - orderB;
     });
   }, [requests, searchQuery, filterCondition, filterStatus, filterUc3Status, filterLocation]);
 
@@ -547,40 +563,40 @@ export default function App() {
           <div className="flex space-x-1 p-0.5 bg-[#18181B] border border-[#27272A] rounded-xl self-start">
             <button
               onClick={() => setActiveTab('table')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-[12px] font-bold tracking-wide uppercase transition cursor-pointer ${
                 activeTab === 'table'
-                  ? 'bg-[#27272A] text-white border border-zinc-700/50'
-                  : 'text-zinc-500 hover:text-white'
+                  ? 'bg-zinc-800 text-white shadow-md ring-1 ring-zinc-700'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50'
               }`}
             >
               Service Request Tracker
             </button>
             <button
               onClick={() => setActiveTab('failure')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-[12px] font-bold tracking-wide uppercase transition cursor-pointer ${
                 activeTab === 'failure'
-                  ? 'bg-amber-600 text-white shadow-md shadow-amber-500/10 font-extrabold'
-                  : 'text-zinc-500 hover:text-amber-400'
+                  ? 'bg-amber-700 text-white shadow-md ring-1 ring-amber-600'
+                  : 'text-zinc-400 hover:text-amber-400 hover:bg-amber-900/20'
               }`}
             >
               Failure Information Tracker
             </button>
             <button
               onClick={() => setActiveTab('surattugas')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-[12px] font-bold tracking-wide uppercase transition cursor-pointer ${
                 activeTab === 'surattugas'
-                  ? 'bg-yellow-650 text-white shadow-md shadow-yellow-500/10 font-extrabold border border-yellow-500/20'
-                  : 'text-zinc-500 hover:text-amber-450'
+                  ? 'bg-yellow-700 text-white shadow-md ring-1 ring-yellow-600'
+                  : 'text-zinc-400 hover:text-yellow-400 hover:bg-yellow-900/20'
               }`}
             >
               Surat Tugas Tracker
             </button>
             <button
               onClick={() => setActiveTab('guide')}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-[12px] font-bold tracking-wide uppercase transition cursor-pointer ${
                 activeTab === 'guide'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-zinc-500 hover:text-blue-400'
+                  ? 'bg-blue-700 text-white shadow-md ring-1 ring-blue-600'
+                  : 'text-zinc-400 hover:text-blue-400 hover:bg-blue-900/20'
               }`}
             >
               Integrasi Google Sheets ⚡
@@ -1144,6 +1160,7 @@ export default function App() {
         }}
         onSave={handleSaveRequest}
         editData={editingRequest}
+        uniqueMechanics={Array.from(new Set(requests.flatMap(r => [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].filter(Boolean) as string[]))).sort()}
       />
     </div>
   );
