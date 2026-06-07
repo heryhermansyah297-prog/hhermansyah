@@ -166,9 +166,9 @@ export default function App() {
         if (labour && labour.trim()) names.add(labour.trim());
       });
     });
-    Object.keys(assignments).forEach(name => names.add(name));
+    // Removed automatic inclusion of Object.keys(assignments) to keep the list restricted to request labour.
     return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [requests, assignments]);
+  }, [requests]);
   const filteredRequests = useMemo(() => {
     const filtered = requests.filter(req => {
       // 1. Search Query Match
