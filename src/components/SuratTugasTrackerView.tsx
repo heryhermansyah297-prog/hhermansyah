@@ -26,9 +26,25 @@ interface SuratTugasTrackerViewProps {
   requests: ServiceRequest[];
 }
 
-export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerViewProps) {
+export default function SuratTugasTrackerView({ requests: propRequests }: SuratTugasTrackerViewProps) {
   // --- States ---
+  const [requests, setRequests] = useState<ServiceRequest[]>(propRequests || []);
   const [assignments, setAssignments] = useState<Record<string, SuratTugas>>({});
+  
+  useEffect(() => {
+    if (propRequests && propRequests.length > 0) {
+      setRequests(propRequests);
+    } else {
+      const savedRequests = localStorage.getItem('service_requests');
+      if (savedRequests) {
+        try {
+          setRequests(JSON.parse(savedRequests));
+        } catch (e) {
+          console.error('Failed to parse service_requests from localStorage', e);
+        }
+      }
+    }
+  }, [propRequests]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'All' | 'Active' | 'Idle'>('All');
   const [filterKPI, setFilterKPI] = useState<string>('All');
