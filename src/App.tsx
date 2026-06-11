@@ -111,7 +111,11 @@ export default function App() {
     
     // Sync automatically on start if we have a URL
     if (initialUrl) {
-      handleSyncWithGoogleAppScript(initialUrl, true).catch(e => console.error("Initial load sync failed:", e));
+      setIsSyncing(true);
+      handleSyncWithGoogleAppScript(initialUrl, true)
+        .then(() => console.log("Initial load sync complete"))
+        .catch(e => console.error("Initial load sync failed:", e))
+        .finally(() => setIsSyncing(false));
     }
     
     // Auto-refresh every 5 minutes
@@ -294,6 +298,9 @@ export default function App() {
           shouldUpdateServiceRequests = !!rawData.sheetsFound.serviceRequests;
           shouldUpdateFailureInformations = !!rawData.sheetsFound.failureInformations;
           shouldUpdateSuratTugas = !!rawData.sheetsFound.suratTugas;
+          
+          // Debug logs for user
+          console.log("Sheets found status:", rawData.sheetsFound);
         } else {
           // Compatibility for scripts without sheetsFound
           shouldUpdateServiceRequests = rawData.serviceRequests !== undefined;
@@ -303,6 +310,9 @@ export default function App() {
 
         if (shouldUpdateServiceRequests && rawData.serviceRequests) {
           srData = rawData.serviceRequests;
+        } else if (rawData.serviceRequests === undefined && !rawData.sheetsFound) {
+          // If neither found nor provided, we shouldn't wipe data
+          shouldUpdateServiceRequests = false;
         }
         
         if (shouldUpdateFailureInformations && rawData.failureInformations) {
@@ -323,18 +333,23 @@ export default function App() {
             // De-duplicate incoming sheet data: map normalized name -> best record
             const sheetRecords: Record<string, any> = {};
             rawData.suratTugas.forEach((st: any) => {
-              if (st.mechanicName) {
-                const normalized = st.mechanicName.trim().toUpperCase();
+              const mName = st.mechanicName || st['NAMA MEKANIK'];
+              if (mName) {
+                const normalized = mName.trim().toUpperCase();
                 const existing = sheetRecords[normalized];
                 
                 // Keep the record that has more data (e.g., startDate or endDate)
-                if (!existing || (!existing.startDate && st.startDate)) {
+                if (!existing || (!existing.startDate && (st.startDate || st['ST MULAI']))) {
                   sheetRecords[normalized] = {
-                    mechanicName: st.mechanicName.trim(), 
-                    startDate: st.startDate || '',
-                    endDate: st.endDate || '',
-                    lastDateDeclaration: st.lastDateDeclaration || '',
-                    statusTugas: st.statusTugas || 'Surat Tugas'
+                    mechanicName: mName.trim(), 
+                    startDate: st.startDate || st['ST MULAI'] || '',
+                    endDate: st.endDate || st['ST SELESAI'] || '',
+                    lastDateDeclaration: st.lastDateDeclaration || st['LAST DATE DECLARATION'] || '',
+                    statusTugas: st.statusTugas || st['STATUS TUGAS'] || 'Surat Tugas',
+                    deklarasi: st.deklarasi || st['DEKLARASI (%)'] || '',
+                    hariSt: st.hariSt || st['HARI ST'] || '',
+                    kpiScore: st.kpiScore || st['PENCAPAIAN KPI (SENIN-JUMAT)'] || '',
+                    tindakan: st.tindakan || st['TINDAKAN'] || ''
                   };
                 }
               }
@@ -363,31 +378,42 @@ export default function App() {
         // Map rawData to guarantee id presence
         const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
           id: item.id || (idx + 1).toString(),
-          customerName: item.customerName || '',
-          srNumber: item.srNumber || '',
-          woNumber: item.woNumber || '',
-          uc3Number: item.uc3Number || '',
-          uc3Status: item.uc3Status || 'None',
-          srDate: item.srDate || '',
-          srAging: parseInt(item.srAging) || 0,
-          planningDate: item.planningDate || '',
-          actionDate: item.actionDate || '',
-          rfuDate: item.rfuDate || '',
-          unitCondition: item.unitCondition || 'Running Without Trouble',
-          snUnit: item.snUnit || '',
-          model: item.model || 'HX210HD',
-          issueDescription: item.issueDescription || '',
-          location: item.location || '',
-          labour1: item.labour1 || '',
-          labour2: item.labour2 || '',
-          labour3: item.labour3 || '',
-          labour4: item.labour4 || '',
-          labour5: item.labour5 || '',
-          labour6: item.labour6 || '',
-          status: item.status || 'Inprogress',
-          leadJobDescription: item.leadJobDescription || '',
-          ticketId: item.ticketId || '',
-          aksi: item.aksi || ''
+          customerName: item.customerName || item['Customer Name'] || '',
+          srNumber: item.srNumber || item['Nomor SR'] || '',
+          woNumber: item.woNumber || item['Nomor WO'] || '',
+          uc3Number: item.uc3Number || item['Nomor UC3'] || '',
+          uc3Status: item.uc3Status || item['Status UC3'] || 'None',
+          srDate: formatDateString(item.srDate || item['Tanggal SR'] || ''),
+          srAging: parseInt(item.srAging || item['SR Aging']) || 0,
+          planningDate: formatDateString(item.planningDate || item['Jadwal Planning'] || ''),
+          actionDate: formatDateString(item.actionDate || item['Tanggal Action'] || ''),
+          rfuDate: formatDateString(item.rfuDate || item['Tanggal RFU'] || ''),
+          unitCondition: item.unitCondition || item['Kondisi Alat'] || 'Running Without Trouble',
+          snUnit: item.snUnit || item['SN'] || '',
+          model: item.model || item['Model'] || 'HX210HD',
+          issueDescription: item.issueDescription || item['Deskripsi Masalah'] || item['Isi / Deskripsi Masalah'] || '',
+          location: item.location || item['Lokasi'] || item['Lokasi / Sektor'] || '',
+          labour1: item.labour1 || item['Mekanik 1'] || '',
+          labour2: item.labour2 || item['Mekanik 2'] || '',
+          labour3: item.labour3 || item['Mekanik 3'] || '',
+          labour4: item.labour4 || item['Mekanik 4'] || '',
+          labour5: item.labour5 || item['Mekanik 5'] || '',
+          labour6: item.labour6 || item['Mekanik 6'] || '',
+          status: item.status || item['Status Pekerjaan'] || 'Inprogress',
+          leadJobDescription: item.leadJobDescription || item['Deskripsi Pekerjaan'] || item['LEAD JOB DESCRIPTION'] || '',
+          ticketId: item.ticketId || item['ID Ticket'] || '',
+          aksi: item.aksi || '',
+          // New fields for A-AJ
+          component: item.component || item['Component'] || item['Komponen'] || '',
+          partNumber: item.partNumber || item['Part Number'] || item['Nomor Part'] || '',
+          partDescription: item.partDescription || item['Part Description'] || item['Deskripsi Part'] || '',
+          qty: parseFloat(item.qty || item['Qty'] || '0') || 0,
+          price: parseFloat(item.price || item['Price'] || item['Harga'] || '0') || 0,
+          totalPrice: parseFloat(item.totalPrice || item['Total Price'] || item['Total Harga'] || '0') || 0,
+          remarks: item.remarks || item['Remarks'] || item['Keterangan'] || '',
+          lastUpdated: formatDateString(item.lastUpdated || item['Last Updated'] || item['Update Terakhir'] || ''),
+          updatedBy: item.updatedBy || item['Updated By'] || item['Diperbarui Oleh'] || '',
+          segment: item.segment || item['Segment'] || item['Segmen'] || ''
         }));
 
         // Safeguard: If we have local data and sync returns 0 rows, 
@@ -449,15 +475,21 @@ export default function App() {
     // Push to Google Apps Script if sync is active
     if (scriptUrl) {
       try {
-        const res = await fetch(scriptUrl, {
+        const payload = reqData.id ? freshData : { ...freshData, action: 'add' };
+        
+        // Use a background fetch to keep UI snappy
+        fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: reqData.id ? 'update' : 'add', type: 'service_request', data: freshData })
-        });
-        if (!res.ok) throw new Error('CORS/Server Error');
+          body: JSON.stringify({ 
+            action: reqData.id ? 'update' : 'add', 
+            type: 'service_request', 
+            data: freshData 
+          })
+        }).catch(err => console.error("Async sync background failed:", err));
+        
       } catch (err) {
-        console.error("Failed to sync structural change to Google Sheets", err);
-        alert('Data berhasil disimpan secara lokal, tetapi GAGAL disinkronisasikan ke Google Sheet (Internet/CORS issue). Mohon cek koneksi atau deployment Apps Script.');
+        console.error("Failed to setup sync to Google Sheets", err);
       }
     }
   };
@@ -491,14 +523,26 @@ export default function App() {
       'SR Number', 'WO Number', 'UC3 Number', 'UC3 Status', 'SR Date', 'SR Aging',
       'Planning Date', 'Action Date', 'RFU Date', 'Unit Condition', 'SN Unit',
       'Model', 'Issue Description', 'Location', 'Labour 1', 'Labour 2', 'Labour 3', 'Labour 4', 'Labour 5', 'Labour 6', 'Status',
-      'LEAD JOB DESCRIPTION'
+      'LEAD JOB DESCRIPTION', 'Aksi', 'Component', 'Part Number', 'Part Description', 'Qty', 'Price', 'Total Price', 'Remarks',
+      'Last Updated', 'Updated By', 'Segment'
     ];
     
     const content = filteredRequests.map(r => [
       r.srNumber, r.woNumber, r.uc3Number, r.uc3Status, r.srDate, r.srAging,
       r.planningDate, r.actionDate, r.rfuDate, r.unitCondition, r.snUnit,
       r.model, r.issueDescription, r.location, r.labour1, r.labour2, r.labour3 || '', r.labour4 || '', r.labour5 || '', r.labour6 || '', r.status,
-      `"${(r.leadJobDescription || '').replace(/"/g, '""')}"`
+      `"${(r.leadJobDescription || '').replace(/"/g, '""')}"`,
+      r.aksi || '',
+      r.component || '',
+      r.partNumber || '',
+      r.partDescription || '',
+      r.qty || 0,
+      r.price || 0,
+      r.totalPrice || 0,
+      `"${(r.remarks || '').replace(/"/g, '""')}"`,
+      r.lastUpdated || '',
+      r.updatedBy || '',
+      r.segment || ''
     ]);
 
     const csvContent = [headers.join(','), ...content.map(row => row.join(','))].join('\n');
@@ -1167,6 +1211,43 @@ export default function App() {
                                           {!req.labour1 && !req.labour2 && !req.labour3 && !req.labour4 && !req.labour5 && !req.labour6 && (
                                             <span className="text-zinc-500">Belum ada mekanik ditugaskan</span>
                                           )}
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                          Informasi Tambahan & Part:
+                                        </h4>
+                                        <div className="space-y-1.5 text-xs text-zinc-350 py-1 flex flex-col font-mono">
+                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
+                                            <span className="text-zinc-500 font-semibold">Komponen:</span>
+                                            <span className="text-zinc-200">{req.component || '-'}</span>
+                                          </div>
+                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
+                                            <span className="text-zinc-500 font-semibold">Part Number:</span>
+                                            <span className="text-blue-300">{req.partNumber || '-'}</span>
+                                          </div>
+                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
+                                            <span className="text-zinc-500 font-semibold">Qty:</span>
+                                            <span className="text-zinc-200">{req.qty || 0}</span>
+                                          </div>
+                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
+                                            <span className="text-zinc-500 font-semibold">Price:</span>
+                                            <span className="text-zinc-200">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(req.price || 0)}</span>
+                                          </div>
+                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1 font-bold">
+                                            <span className="text-zinc-500 font-semibold">Total Price:</span>
+                                            <span className="text-emerald-400">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(req.totalPrice || 0)}</span>
+                                          </div>
+                                          <div className="flex flex-col pt-1">
+                                            <span className="text-zinc-500 font-semibold">Remarks:</span>
+                                            <span className="text-zinc-400 text-[10px] bg-zinc-900/50 p-2 rounded mt-1 border border-zinc-800 leading-relaxed italic">{req.remarks || 'Tidak ada keterangan tambahan.'}</span>
+                                          </div>
+                                          <div className="mt-2 text-[9px] text-zinc-600 flex justify-between italic">
+                                            <span>Terakhir Update: {req.lastUpdated || '-'}</span>
+                                            <span>Oleh: {req.updatedBy || 'System'}</span>
+                                          </div>
                                         </div>
                                       </div>
 

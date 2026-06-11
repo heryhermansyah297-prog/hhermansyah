@@ -98,7 +98,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
         declarationElapsed = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       }
     }
-    const deklarasi = Math.max(0, Math.round((declarationElapsed / maxDeclDays) * 100));
+    const deklarasiVal = Math.max(0, Math.round((declarationElapsed / maxDeclDays) * 100));
 
     let durationDays = 0;
     let weekdayCount = 0;
@@ -117,43 +117,41 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
         }
       }
     }
-    const kpiScore = assignmentToSave.startDate && assignmentToSave.endDate 
+    const kpiVal = assignmentToSave.startDate && assignmentToSave.endDate 
       ? Math.min(100, Math.round((weekdayCount / 5) * 100))
       : 0;
 
     let grade = '-';
     if (assignmentToSave.startDate && assignmentToSave.endDate) {
-      if (kpiScore >= 100) grade = 'A+';
-      else if (kpiScore >= 90) grade = 'A';
-      else if (kpiScore >= 80) grade = 'B+';
-      else if (kpiScore >= 70) grade = 'B';
-      else if (kpiScore >= 60) grade = 'C';
-      else if (kpiScore > 0) grade = 'D';
+      if (kpiVal >= 100) grade = 'A+';
+      else if (kpiVal >= 90) grade = 'A';
+      else if (kpiVal >= 80) grade = 'B+';
+      else if (kpiVal >= 70) grade = 'B';
+      else if (kpiVal >= 60) grade = 'C';
+      else if (kpiVal > 0) grade = 'D';
       else grade = 'F';
     }
 
     return {
       ...assignmentToSave,
-      deklarasi: deklarasi + '%',
+      deklarasi: (assignmentToSave.startDate || assignmentToSave.lastDateDeclaration) ? deklarasiVal + '%' : '',
       hariSt: durationDays > 0 ? durationDays : '',
-      kpiScore: grade === '-' ? '-' : `${kpiScore}% (${grade})`,
-      action: '-'
+      kpiScore: grade === '-' ? '-' : `${kpiVal}% (${grade})`,
+      tindakan: assignmentToSave.tindakan || '-'
     };
   };
 
   // Save specific mechanic assignment
-  const saveAssignment = async (mechanicName: string, start: string, end: string, statusTugas?: 'Surat Tugas' | 'Lumpsum', lastDateDeclaration?: string) => {
-    const existing = assignments[mechanicName] || { mechanicName, startDate: '', endDate: '' };
+  const saveAssignment = async (mechanicName: string, fields: Partial<SuratTugas>) => {
+    const key = mechanicName.trim().toUpperCase();
+    const existing = assignments[key] || { mechanicName, startDate: '', endDate: '' };
+    
     const assignmentToSave = {
       ...existing,
-      mechanicName,
-      startDate: start,
-      endDate: end,
-      statusTugas,
-      lastDateDeclaration
+      ...fields,
+      mechanicName // ensure name is preserved
     };
     
-    const key = mechanicName.trim().toUpperCase();
     const updated = {
       ...assignments,
       [key]: assignmentToSave
@@ -445,6 +443,8 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
         else grade = 'D';
       }
 
+      const tindakan = st.tindakan || '';
+
       return {
         name,
         totalSR: totalCount,
@@ -458,7 +458,8 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
         grade,
         statusTugas,
         lastDateDeclaration,
-        declarationPercentage
+        declarationPercentage,
+        tindakan
       };
     });
   }, [uniqueMechanics, requests, assignments]);
@@ -501,7 +502,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
 
   const submitNewMechanic = () => {
     if (newMechanicName.trim()) {
-      saveAssignment(newMechanicName.trim(), '', '', 'Surat Tugas', '');
+      saveAssignment(newMechanicName.trim(), { statusTugas: 'Surat Tugas' });
       setIsAddMechanicModalOpen(false);
       setNewMechanicName('');
     }
@@ -763,7 +764,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
                     <td className="px-3 py-3 text-center">
                       <select
                         value={item.statusTugas || 'Surat Tugas'}
-                        onChange={(e) => saveAssignment(item.name, item.startDate, item.endDate, e.target.value as 'Surat Tugas' | 'Lumpsum', item.lastDateDeclaration)}
+                        onChange={(e) => saveAssignment(item.name, { statusTugas: e.target.value as any })}
                         className={`inline-flex outline-none items-center px-1.5 py-1 rounded text-[9px] font-bold uppercase tracking-wider border cursor-pointer ${
                           item.statusTugas === 'Lumpsum' 
                             ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' 
@@ -781,7 +782,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
                         <input
                           type="date"
                           value={item.startDate || ''}
-                          onChange={(e) => saveAssignment(item.name, e.target.value, item.endDate, item.statusTugas, item.lastDateDeclaration)}
+                          onChange={(e) => saveAssignment(item.name, { startDate: e.target.value })}
                           className="bg-[#09090B] hover:bg-zinc-900 focus:bg-zinc-900 border border-[#27272A] hover:border-amber-500/50 rounded-lg px-2 py-1.5 text-zinc-300 focus:outline-none focus:border-amber-500 font-mono text-[10px] cursor-pointer transition text-center min-w-[115px]"
                         />
                       </div>
@@ -793,7 +794,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
                         <input
                           type="date"
                           value={item.endDate || ''}
-                          onChange={(e) => saveAssignment(item.name, item.startDate, e.target.value, item.statusTugas, item.lastDateDeclaration)}
+                          onChange={(e) => saveAssignment(item.name, { endDate: e.target.value })}
                           className="bg-[#09090B] hover:bg-zinc-900 focus:bg-zinc-900 border border-[#27272A] hover:border-amber-500/50 rounded-lg px-2 py-1.5 text-zinc-300 focus:outline-none focus:border-amber-500 font-mono text-[10px] cursor-pointer transition text-center min-w-[115px]"
                         />
                       </div>
@@ -805,7 +806,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
                         <input
                           type="date"
                           value={item.lastDateDeclaration || ''}
-                          onChange={(e) => saveAssignment(item.name, item.startDate, item.endDate, item.statusTugas, e.target.value)}
+                          onChange={(e) => saveAssignment(item.name, { lastDateDeclaration: e.target.value })}
                           className="bg-[#09090B] hover:bg-zinc-900 focus:bg-zinc-900 border border-[#27272A] hover:border-amber-500/50 rounded-lg px-2 py-1.5 text-zinc-300 focus:outline-none focus:border-amber-500 font-mono text-[10px] cursor-pointer transition text-center min-w-[115px]"
                         />
                       </div>
@@ -892,6 +893,17 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
                           Set Tanggal ST untuk mengaktifkan KPI
                         </div>
                       )}
+                    </td>
+
+                    {/* TINDAKAN */}
+                    <td className="px-3 py-3">
+                      <input
+                        type="text"
+                        placeholder="Tindakan..."
+                        value={item.tindakan || ''}
+                        onChange={(e) => saveAssignment(item.name, { tindakan: e.target.value })}
+                        className="w-full bg-[#09090B] hover:bg-zinc-900 border border-[#27272A] hover:border-blue-500/50 rounded-lg px-2 py-1.5 text-zinc-300 focus:outline-none focus:border-blue-500 text-[10px] transition"
+                      />
                     </td>
 
                     {/* ACTIONS - "BERSIHKAN" */}

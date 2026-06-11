@@ -30,6 +30,17 @@ export interface ServiceRequest {
   leadJobDescription: string;
   ticketId?: string;
   aksi?: string;
+  // Additional fields for columns up to AJ
+  component?: string;
+  partNumber?: string;
+  partDescription?: string;
+  qty?: number;
+  price?: number;
+  totalPrice?: number;
+  remarks?: string;
+  lastUpdated?: string;
+  updatedBy?: string;
+  segment?: string;
 }
 
 export interface SpreadsheetConfig {
@@ -57,5 +68,9 @@ export interface SuratTugas {
   startDate: string; // YYYY-MM-DD or empty
   endDate: string;   // YYYY-MM-DD or empty
   lastDateDeclaration?: string;
-  statusTugas?: 'Surat Tugas' | 'Lumpsum';
+  statusTugas?: string;
+  deklarasi?: string;
+  hariSt?: string | number;
+  kpiScore?: string;
+  tindakan?: string;
 }

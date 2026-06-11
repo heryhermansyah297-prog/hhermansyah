@@ -44,7 +44,13 @@ export default function GoogleAppsScriptGuide({
     }
   };
 
-  const scriptCode = `function doGet(e) {
+  const scriptCode = `/**
+ * @license
+ * Heavy Equipment Service Tracker - Google Sheets Sync Script
+ * Versi Dinamis - Mendukung Header Indonesia & Inggris
+ */
+
+function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheets = ss.getSheets();
@@ -59,6 +65,7 @@ export default function GoogleAppsScriptGuide({
       }
     };
     
+    // Identifikasi sheet berdasarkan header yang ada di baris pertama
     for (var s = 0; s < sheets.length; s++) {
       var sheet = sheets[s];
       var rows = sheet.getDataRange().getValues();
@@ -68,35 +75,27 @@ export default function GoogleAppsScriptGuide({
         return h.toString().trim();
       });
       
-      // Classify columns into segment ranges statically based on columns of the sheet:
-      // Kolom A sampai AL (0-37): Service Requests
-      // Kolom AM sampai AW (38-48): Failure Information
-      // Kolom AX sampai BG (49-58): Surat Tugas / KPI
-      var colSegments = new Array(headers.length);
-      for (var j = 0; j < headers.length; j++) {
-        if (j >= 0 && j <= 37) {
-          colSegments[j] = 'service_request';
-          result.sheetsFound.serviceRequests = true;
-        } else if (j >= 38 && j <= 48) {
-          colSegments[j] = 'failure_information';
-          result.sheetsFound.failureInformations = true;
-        } else if (j >= 49 && j <= 58) {
-          colSegments[j] = 'surat_tugas';
-          result.sheetsFound.suratTugas = true;
-        } else {
-          colSegments[j] = 'unknown';
-        }
+      var headersStr = headers.join('|').toUpperCase();
+      var type = 'unknown';
+      
+      // Deteksi Tipe Sheet berdasarkan kata kunci di Header
+      if (headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('NOMOR SR') > -1) {
+        type = 'service_request';
+        result.sheetsFound.serviceRequests = true;
+      } else if (headersStr.indexOf('FI NUMBER') > -1 || headersStr.indexOf('NOMOR FI') > -1) {
+        type = 'failure_information';
+        result.sheetsFound.failureInformations = true;
+      } else if (headersStr.indexOf('NAMA MEKANIK') > -1 || headersStr.indexOf('MECHANIC NAME') > -1) {
+        type = 'surat_tugas';
+        result.sheetsFound.suratTugas = true;
       }
       
+      if (type === 'unknown') continue;
+
       for (var i = 1; i < rows.length; i++) {
         var row = rows[i];
-        var srItem = { id: i.toString() };
-        var fiItem = { id: i.toString() };
-        var stItem = { id: i.toString() };
-        
-        var srHasData = false;
-        var fiHasData = false;
-        var stHasData = false;
+        var item = { id: (i).toString() };
+        var hasData = false;
         
         for (var j = 0; j < headers.length; j++) {
           var header = headers[j];
@@ -106,37 +105,26 @@ export default function GoogleAppsScriptGuide({
             val = Utilities.formatDate(val, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
           }
           
-          var segment = colSegments[j];
-          var key = mapHeaderToKey(header, segment);
+          var key = mapHeaderToKey(header, type);
           if (key) {
-            if (segment === 'service_request') {
-              srItem[key] = val;
-              if (val !== undefined && val !== null && val.toString().trim() !== "") {
-                srHasData = true;
-              }
-            } else if (segment === 'failure_information') {
-              fiItem[key] = val;
-              if (val !== undefined && val !== null && val.toString().trim() !== "") {
-                fiHasData = true;
-              }
-            } else if (segment === 'surat_tugas') {
-              stItem[key] = val;
-              if (val !== undefined && val !== null && val.toString().trim() !== "") {
-                stHasData = true;
-              }
+            item[key] = val;
+            if (val !== undefined && val !== null && val.toString().trim() !== "") {
+              hasData = true;
             }
+          } else {
+            // Backup jika tidak ada mapping: gunakan nama header asli
+            item[header] = val;
           }
         }
         
-        if (srHasData && srItem.srNumber) {
-          srItem.status = srItem.status || "Inprogress";
-          result.serviceRequests.push(srItem);
-        }
-        if (fiHasData && fiItem.fiNumber) {
-          result.failureInformations.push(fiItem);
-        }
-        if (stHasData && stItem.mechanicName) {
-          result.suratTugas.push(stItem);
+        if (hasData) {
+          if (type === 'service_request' && (item.srNumber || item.customerName)) {
+             result.serviceRequests.push(item);
+          } else if (type === 'failure_information' && (item.fiNumber || item.customer)) {
+             result.failureInformations.push(item);
+          } else if (type === 'surat_tugas' && (item.mechanicName)) {
+             result.suratTugas.push(item);
+          }
         }
       }
     }
@@ -144,298 +132,185 @@ export default function GoogleAppsScriptGuide({
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
-function mapHeaderToKey(header, segment) {
+function mapHeaderToKey(header, type) {
   var h = header.toLowerCase().replace(/[^a-z0-9]/g, "");
   
-  if (segment === 'service_request') {
-    if (h === "customername" || h === "namacustomer") return "customerName";
+  if (type === 'service_request') {
+    if (h === "customername" || h === "namacustomer" || h === "pelanggan") return "customerName";
     if (h === "srnumber" || h === "nomorsr") return "srNumber";
     if (h === "wonumber" || h === "nomorwo") return "woNumber";
-    if (h === "uc3number" || h === "uc3no" || h === "nomoruc3") return "uc3Number";
+    if (h === "uc3number" || h === "nomoruc3") return "uc3Number";
     if (h === "uc3status" || h === "statusuc3") return "uc3Status";
-    if (h === "ticketid" || h === "idticket" || h === "nomorticket") return "ticketId";
-    if (h === "srdate" || h === "tanggal" || h === "tanggalsr") return "srDate";
-    if (h === "sraging" || h === "aging" || h === "umursr") return "srAging";
-    if (h === "planningdate" || h === "tanggalplanning" || h === "jadwalplanning") return "planningDate";
-    if (h === "actiondate" || h === "tanggalaction") return "actionDate";
-    if (h === "rfudate" || h === "tanggalrfu") return "rfuDate";
-    if (h === "unitcondition" || h === "kondisiunit" || h === "kondisialat") return "unitCondition";
-    if (h === "snunit" || h === "serialnumber" || h === "sn") return "snUnit";
+    if (h === "ticketid" || h === "idticket" || h === "idtiket") return "ticketId";
+    if (h === "srdate" || h === "tanggalsr" || h === "tanggal") return "srDate";
+    if (h === "sraging" || h === "umursr" || h === "aging") return "srAging";
+    if (h === "planningdate" || h === "jadwalplanning" || h === "tanggalplanning") return "planningDate";
+    if (h === "actiondate" || h === "tanggalaction" || h === "action") return "actionDate";
+    if (h === "rfudate" || h === "tanggalrfu" || h === "rfu") return "rfuDate";
+    if (h === "unitcondition" || h === "kondisialat" || h === "kondisiunit") return "unitCondition";
+    if (h === "snunit" || h === "sn" || h === "serialnumber") return "snUnit";
     if (h === "model" || h === "tipe") return "model";
-    if (h === "issuedescription" || h === "masalah" || h === "deskripsi" || h === "deskrispisu" || h === "deskripsimasalah") return "issueDescription";
-    if (h === "location" || h === "lokasi" || h === "sektorlokasi") return "location";
-    if (h === "labour1" || h === "mekanik1" || h === "laboursatu") return "labour1";
-    if (h === "labour2" || h === "mekanik2" || h === "labourdua") return "labour2";
-    if (h === "labour3" || h === "mekanik3" || h === "labourtiga") return "labour3";
-    if (h === "labour4" || h === "mekanik4" || h === "labourempat") return "labour4";
-    if (h === "labour5" || h === "mekanik5" || h === "labourlima") return "labour5";
-    if (h === "labour6" || h === "mekanik6" || h === "labourenam") return "labour6";
-    if (h === "status" || h === "statuskerja") return "status";
-    if (h === "leadjobdescription" || h === "deskripsikerja" || h === "leadjob" || h === "laporanaktivitasmekanikleadjobdescription" || h === "laporanaktivitasmekanik") return "leadJobDescription";
-    if (h === "aksi") return "aksi";
+    if (h === "issuedescription" || h === "deskripsimasalah" || h === "masalah" || h === "isideskripsimasalah") return "issueDescription";
+    if (h === "location" || h === "lokasi" || h === "sektor") return "location";
+    if (h === "labour1" || h === "mekanik1") return "labour1";
+    if (h === "labour2" || h === "mekanik2") return "labour2";
+    if (h === "labour3" || h === "mekanik3") return "labour3";
+    if (h === "labour4" || h === "mekanik4") return "labour4";
+    if (h === "labour5" || h === "mekanik5") return "labour5";
+    if (h === "labour6" || h === "mekanik6") return "labour6";
+    if (h === "status" || h === "statuskerja" || h === "statuspekerjaan") return "status";
+    if (h === "leadjobdescription" || h === "deskripsikerja" || h === "laporanaktivitas" || h === "leadjob") return "leadJobDescription";
+    if (h === "aksi" || h === "action") return "aksi";
+    if (h === "component" || h === "komponen") return "component";
+    if (h === "partnumber" || h === "nomorpart") return "partNumber";
+    if (h === "partdescription" || h === "deskripsipart") return "partDescription";
+    if (h === "qty" || h === "jumlah") return "qty";
+    if (h === "price" || h === "harga") return "price";
+    if (h === "totalprice" || h === "totalharga") return "totalPrice";
+    if (h === "remarks" || h === "keterangan") return "remarks";
+    if (h === "lastupdated" || h === "updateterakhir") return "lastUpdated";
+    if (h === "updatedby" || h === "diperbaruioleh") return "updatedBy";
+    if (h === "segment" || h === "segmen") return "segment";
   }
   
-  if (segment === 'failure_information') {
+  if (type === 'failure_information') {
     if (h === "customer" || h === "pelanggan") return "customer";
     if (h === "finumber" || h === "nomorfi") return "fiNumber";
     if (h === "fidate" || h === "tanggalfi") return "fiDate";
-    if (h === "fiaging" || h === "fiagingdays") return "fiAging";
+    if (h === "fiaging") return "fiAging";
     if (h === "fistatus" || h === "statusfi") return "fiStatus";
-    if (h === "partstatus" || h === "statuspart") return "partStatus";
-    if (h === "planningprogress" || h === "progressplanning") return "planningProgress";
-    if (h === "evidentpm" || h === "evident") return "evidentPm";
-    if (h === "createby" || h === "dibuatoleh") return "createBy";
-    if (h === "action" || h === "tindakan") return "action";
-    if (h === "status") return "status";
+    if (h === "evidentpm") return "evidentPm";
+    if (h === "createby") return "createBy";
   }
   
-  if (segment === 'surat_tugas') {
+  if (type === 'surat_tugas') {
     if (h === "namamekanik" || h === "mechanicname") return "mechanicName";
-    if (h === "statustugas" || h === "status") return "statusTugas";
+    if (h === "statustugas" || h === "statustugasmekanik") return "statusTugas";
     if (h === "stmulai" || h === "startdate") return "startDate";
     if (h === "stselesai" || h === "enddate") return "endDate";
     if (h === "lastdatedeclaration") return "lastDateDeclaration";
     if (h === "deklarasi") return "deklarasi";
     if (h === "harist") return "hariSt";
-    if (h === "pencapaiankpiseninjumat" || h === "pencapaiankpi") return "kpiScore";
-    if (h === "tindakan" || h === "action") return "action";
+    if (h === "pencapaiankpi" || h === "kpimin") return "kpiScore";
+    if (h === "tindakan") return "tindakan";
   }
   
   return null;
 }
 
-function sortTablesIndependently(sheet) {
-  var lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    // 1. Sort Service Requests (Columns A to AL, i.e., cols 1 to 38) based on Column B (column 2 - Nomor SR)
-    sheet.getRange(2, 1, lastRow - 1, 38).sort({column: 2, ascending: true});
-    
-    // 2. Sort Failure Information (Columns AM to AW, i.e., cols 39 to 49) based on Column AN (column 40 - FI Number)
-    sheet.getRange(2, 39, lastRow - 1, 11).sort({column: 40, ascending: true});
-    
-    // 3. Sort Surat Tugas (Columns AX to BG, i.e., cols 50 to 59) based on Column AX (column 50 - Nama Mekanik)
-    sheet.getRange(2, 50, lastRow - 1, 10).sort({column: 50, ascending: true});
-  }
-}
-
 function doPost(e) {
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
     var postData = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
     var action = postData.action;
+    var type = postData.type || 'service_request';
     var payload = postData.data || postData.payload;
-    var type = postData.type;
-
+    
+    // Temukan sheet yang sesuai secara dinamis
     var sheets = ss.getSheets();
-    var sheet = ss.getActiveSheet();
-
+    var sheet = null;
+    
     for (var s = 0; s < sheets.length; s++) {
-       var sHeaders = sheets[s].getDataRange().getValues()[0] || [];
-       var sHeadersStr = sHeaders.join('').toUpperCase();
-       
-       var firstPayloadItem = null;
-       if (payload) {
-         if (Array.isArray(payload)) {
-           if (payload.length > 0) {
-             firstPayloadItem = payload[0];
-           }
-         } else {
-           firstPayloadItem = payload;
-         }
-       }
-
-       if (type === 'failure_information' || (firstPayloadItem && firstPayloadItem.fiNumber !== undefined)) {
-         if (sHeadersStr.indexOf('FI NUMBER') > -1) {
-            sheet = sheets[s];
-            break;
-         }
-       } else if (type === 'surat_tugas' || (firstPayloadItem && firstPayloadItem.mechanicName !== undefined)) {
-         if (sHeadersStr.indexOf('NAMA MEKANIK') > -1 || sHeadersStr.indexOf('ST MULAI') > -1) {
-            sheet = sheets[s];
-            break;
-         }
-       } else {
-         if (sHeadersStr.indexOf('SR NUMBER') > -1 || sHeadersStr.indexOf('WO NUMBER') > -1) {
-            sheet = sheets[s];
-            break;
-         }
-       }
+      var hRow = sheets[s].getDataRange().getValues()[0] || [];
+      var hStr = hRow.join('|').toUpperCase();
+      
+      if (type === 'service_request' && (hStr.indexOf('NOMOR SR') > -1 || hStr.indexOf('SR NUMBER') > -1)) {
+        sheet = sheets[s]; break;
+      } else if (type === 'failure_information' && (hStr.indexOf('NOMOR FI') > -1 || hStr.indexOf('FI NUMBER') > -1)) {
+        sheet = sheets[s]; break;
+      } else if (type === 'surat_tugas' && (hStr.indexOf('NAMA MEKANIK') > -1 || hStr.indexOf('MECHANIC NAME') > -1)) {
+        sheet = sheets[s]; break;
+      }
     }
-
-    var maxCols = sheet.getMaxColumns();
-    if (maxCols < 59) {
-      sheet.insertColumnsAfter(maxCols, 59 - maxCols);
-    }
+    
+    if (!sheet) return errorResponse("Sheet target tidak ditemukan di spreadsheet ini.");
 
     var rows = sheet.getDataRange().getValues();
     var headers = rows[0].map(function(h) { return h.toString().trim(); });
 
-    // Classify columns into segment ranges statically based on columns of the sheet:
-    // Kolom A sampai AL (0-37): Service Requests
-    // Kolom AM sampai AW (38-48): Failure Information
-    // Kolom AX sampai BG (49-58): Surat Tugas / KPI
-    var colSegments = new Array(headers.length);
-    for (var j = 0; j < headers.length; j++) {
-      if (j >= 0 && j <= 37) {
-        colSegments[j] = 'service_request';
-      } else if (j >= 38 && j <= 48) {
-        colSegments[j] = 'failure_information';
-      } else if (j >= 49 && j <= 58) {
-        colSegments[j] = 'surat_tugas';
-      } else {
-        colSegments[j] = 'unknown';
-      }
-    }
-
-    // Find the columns that are target for this action
-    var targetCols = [];
-    for (var j = 0; j < headers.length; j++) {
-      if (colSegments[j] === type) {
-        targetCols.push(j);
-      }
-    }
-
-    if (targetCols.length === 0) {
-       for (var j = 0; j < headers.length; j++) {
-         targetCols.push(j);
-       }
-    }
-
-    var minColIdx = targetCols[0];
-    var maxColIdx = targetCols[targetCols.length - 1];
-    var numCols = maxColIdx - minColIdx + 1;
-
-    if (action === 'add') {
-       var targetRowIdx = 2;
-       var foundEmpty = false;
-       for (var r = 1; r < rows.length; r++) {
-         var isEmpty = true;
-         for (var k = 0; k < targetCols.length; k++) {
-           var val = rows[r][targetCols[k]];
-           if (val !== undefined && val !== null && val.toString().trim() !== "") {
-             isEmpty = false;
-             break;
-           }
-         }
-         if (isEmpty) {
-           targetRowIdx = r + 1;
-           foundEmpty = true;
-           break;
-         }
-       }
-       if (!foundEmpty) {
-         targetRowIdx = rows.length + 1;
-       }
-
-       var maxRows = sheet.getMaxRows();
-       if (targetRowIdx > maxRows) {
-         sheet.insertRowsAfter(maxRows, targetRowIdx - maxRows);
-       }
-       
-       for (var k = 0; k < targetCols.length; k++) {
-         var colIndex = targetCols[k] + 1;
-         var hName = headers[targetCols[k]];
-         var key = mapHeaderToKey(hName, type);
-         var val = (key && payload[key] !== undefined && payload[key] !== null) ? payload[key] : "";
-         sheet.getRange(targetRowIdx, colIndex).setValue(val);
-       }
-       sortTablesIndependently(sheet);
-       return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
-    } 
-    
     if (action === 'bulk_replace') {
-       var maxRows = sheet.getMaxRows();
-       if (maxRows > 1) {
-         sheet.getRange(2, minColIdx + 1, maxRows - 1, numCols).clearContent();
-       }
-       
-       if (payload && Array.isArray(payload)) {
-         var valuesToWrite = [];
-         for (var i = 0; i < payload.length; i++) {
-           var item = payload[i];
-           var rowValues = new Array(numCols);
-           for (var c = 0; c < numCols; c++) {
-             var hIdx = minColIdx + c;
-             var hName = headers[hIdx];
-             var key = mapHeaderToKey(hName, type);
-             rowValues[c] = (key && item[key] !== undefined && item[key] !== null) ? item[key] : "";
-           }
-           valuesToWrite.push(rowValues);
-         }
-         
-         if (valuesToWrite.length > 0) {
-           var neededRows = valuesToWrite.length + 1;
-           maxRows = sheet.getMaxRows();
-           if (neededRows > maxRows) {
-             sheet.insertRowsAfter(maxRows, neededRows - maxRows);
-           }
-           sheet.getRange(2, minColIdx + 1, valuesToWrite.length, numCols).setValues(valuesToWrite);
-         }
-       }
-       sortTablesIndependently(sheet);
-       return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
+      if (sheet.getLastRow() > 1) {
+        sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+      }
+      if (payload && Array.isArray(payload)) {
+        var valuesToWrite = [];
+        for (var i = 0; i < payload.length; i++) {
+          var item = payload[i];
+          var rowData = new Array(headers.length);
+          for (var j = 0; j < headers.length; j++) {
+            var key = mapHeaderToKey(headers[j], type);
+            // Coba key mapping dashboard ATAU nama header asli
+            var val = (key && item[key] !== undefined) ? item[key] : (item[headers[j]] || "");
+            rowData[j] = val;
+          }
+          valuesToWrite.push(rowData);
+        }
+        if (valuesToWrite.length > 0) {
+          sheet.getRange(2, 1, valuesToWrite.length, headers.length).setValues(valuesToWrite);
+        }
+      }
+      return successResponse();
     }
 
-    if (action === 'update' || action === 'delete') {
-       var targetRowIdx = -1;
-       var keyToMatch = type === 'service_request' ? payload.srNumber : (type === 'failure_information' ? payload.fiNumber : payload.mechanicName);
-       var keyMappedName = type === 'service_request' ? 'srNumber' : (type === 'failure_information' ? 'fiNumber' : 'mechanicName');
-       
-       var headerKeyIdx = -1;
-       for (var k = 0; k < targetCols.length; k++) {
-         var hIdx = targetCols[k];
-         var hMapped = mapHeaderToKey(headers[hIdx], type);
-         if (hMapped === keyMappedName) {
-           headerKeyIdx = hIdx;
-           break;
-         }
-       }
+    // Operasi per record (Add/Update/Delete)
+    var findColIdx = function(keyName) {
+      for (var j = 0; j < headers.length; j++) {
+        if (mapHeaderToKey(headers[j], type) === keyName) return j;
+      }
+      return -1;
+    };
 
-       if (headerKeyIdx > -1) {
-           for (var r = 1; r < rows.length; r++) {
-               if (rows[r][headerKeyIdx] == keyToMatch) {
-                   targetRowIdx = r + 1;
-                   break;
-               }
-           }
-       }
-
-       if (targetRowIdx > -1) {
-           if (action === 'delete') {
-               var numRowsToShift = rows.length - targetRowIdx;
-               if (numRowsToShift > 0) {
-                  var blockValues = sheet.getRange(targetRowIdx + 1, minColIdx + 1, numRowsToShift, numCols).getValues();
-                  sheet.getRange(targetRowIdx, minColIdx + 1, numRowsToShift, numCols).setValues(blockValues);
-                  sheet.getRange(rows.length, minColIdx + 1, 1, numCols).clearContent();
-               } else {
-                  sheet.getRange(targetRowIdx, minColIdx + 1, 1, numCols).clearContent();
-               }
-           } else {
-               for (var k = 0; k < targetCols.length; k++) {
-                  var colIndex = targetCols[k] + 1;
-                  var hName = headers[targetCols[k]];
-                  var key = mapHeaderToKey(hName, type);
-                  var val = (key && payload[key] !== undefined && payload[key] !== null) ? payload[key] : "";
-                  sheet.getRange(targetRowIdx, colIndex).setValue(val);
-               }
-           }
-           sortTablesIndependently(sheet);
-           return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
-       } else {
-           return ContentService.createTextOutput(JSON.stringify({ status: 'not_found', msg: 'Baris tidak ditemukan' })).setMimeType(ContentService.MimeType.JSON);
-       }
-    }
+    var idKey = type === 'service_request' ? 'srNumber' : (type === 'failure_information' ? 'fiNumber' : 'mechanicName');
+    var idColIdx = findColIdx(idKey);
     
-    return ContentService.createTextOutput(JSON.stringify({ status: 'invalid_action' })).setMimeType(ContentService.MimeType.JSON);
+    if (action === 'add') {
+      var newRow = new Array(headers.length);
+      for (var j = 0; j < headers.length; j++) {
+        var key = mapHeaderToKey(headers[j], type);
+        newRow[j] = (key && payload[key] !== undefined) ? payload[key] : "";
+      }
+      sheet.appendRow(newRow);
+      return successResponse();
+    }
 
+    if (idColIdx > -1) {
+      for (var r = 1; r < rows.length; r++) {
+        // Pembandingan ID (Nomor SR atau Nama Mekanik)
+        if (rows[r][idColIdx] == payload[idKey]) {
+          if (action === 'delete') {
+            sheet.deleteRow(r + 1);
+          } else if (action === 'update') {
+            for (var j = 0; j < headers.length; j++) {
+              var key = mapHeaderToKey(headers[j], type);
+              if (key && payload[key] !== undefined) {
+                sheet.getRange(r + 1, j + 1).setValue(payload[key]);
+              }
+            }
+          }
+          return successResponse();
+        }
+      }
+    }
+
+    return errorResponse("Record tidak ditemukan di sheet.");
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+    return errorResponse(err.toString());
   }
-}`;
+}
+
+function successResponse() {
+  return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function errorResponse(msg) {
+  return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: msg })).setMimeType(ContentService.MimeType.JSON);
+}
+`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(scriptCode);
@@ -484,7 +359,7 @@ function doPost(e) {
       item.labour2,
       item.status,
       // escape double quotes of job descriptions
-      `"${(item.leadJobDescription || '').replace(/"/g, '""')}"`
+      '"' + (item.leadJobDescription || '').replace(/"/g, '""') + '"'
     ]);
 
     const csvContent = [headers.join(','), ...content.map(row => row.join(','))].join('\n');
@@ -575,8 +450,19 @@ function doPost(e) {
             <div className="flex-1">
               <p className="font-semibold text-white">Sesuaikan Format Kolom target Anda</p>
               <p className="text-zinc-400 text-xs mt-1 leading-relaxed">
-                Google Sheet target harus memiliki 1 baris pertama yang berisi nama-nama kolom/header (ex: SR Number, WO, Status). Anda bisa mengunduh file CSV di bawah dan menyalin baris pertamanya ke Sheet Anda agar struktur kolomnya bisa dibaca otomatis.
+                Google Sheet target harus memiliki 1 baris pertama yang berisi nama-nama kolom/header. Dashboard ini mendukung mapping otomatis dari Kolom AW sampai BE:
               </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-mono text-blue-400 bg-[#09090B] p-3 rounded-xl border border-zinc-800">
+                <div>AW: NAMA MEKANIK</div>
+                <div>AX: STATUS TUGAS</div>
+                <div>AY: ST MULAI</div>
+                <div>AZ: ST SELESAI</div>
+                <div>BA: LAST DECLARATION</div>
+                <div>BB: DEKLARASI (%)</div>
+                <div>BC: HARI ST</div>
+                <div>BD: PENCAPAIAN KPI</div>
+                <div>BE: TINDAKAN</div>
+              </div>
               <button
                 onClick={handleDownloadCSV}
                 className="mt-3 inline-flex items-center space-x-2 px-3.5 py-2 bg-[#09090B] border border-[#27272A] hover:bg-zinc-800 hover:text-white transition rounded-xl text-xs font-semibold text-zinc-200 cursor-pointer"
