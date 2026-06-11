@@ -28,7 +28,7 @@ import {
   ArrowDownToLine
 } from 'lucide-react';
 
-import { ServiceRequest } from './types';
+import { ServiceRequest, SuratTugas } from './types';
 import { INITIAL_SERVICE_REQUESTS } from './data/mockData';
 import StatsCard from './components/StatsCard';
 import AddRequestModal from './components/AddRequestModal';
@@ -148,9 +148,18 @@ export default function App() {
   
   // Save assignments to localstorage whenever it changes
   const saveAssignmentsToStateAndStorage = (newAssignments: Record<string, SuratTugas>) => {
-    setAssignments(newAssignments);
-    localStorage.setItem('surat_tugas_assignments', JSON.stringify(newAssignments));
-    window.dispatchEvent(new Event('suratTugasUpdated'));
+    // Ensure all keys are normalized (uppercase) to prevent duplicates
+    const normalized: Record<string, SuratTugas> = {};
+    Object.keys(newAssignments).forEach(k => {
+      if (k && k.trim()) {
+        normalized[k.trim().toUpperCase()] = newAssignments[k];
+      }
+    });
+    setAssignments(normalized);
+    localStorage.setItem('surat_tugas_assignments', JSON.stringify(normalized));
+    
+    // Dispatch event to notify other components (like SuratTugasTrackerView)
+    window.dispatchEvent(new CustomEvent('suratTugasUpdated', { detail: normalized }));
   };
 
   // --- Dynamic calculations ---
@@ -160,15 +169,33 @@ export default function App() {
   }, [requests]);
 
   const uniqueMechanics = useMemo(() => {
-    const names = new Set<string>();
+    // Map to store normalizedName -> OriginalName
+    const namesMap = new Map<string, string>();
+    const normalize = (name: string) => name.trim().toUpperCase();
+
     requests.forEach(r => {
       [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].forEach(labour => {
-        if (labour && labour.trim()) names.add(labour.trim());
+        if (labour && labour.trim()) {
+          const norm = normalize(labour);
+          if (!namesMap.has(norm)) {
+            namesMap.set(norm, labour.trim());
+          }
+        }
       });
     });
-    // Removed automatic inclusion of Object.keys(assignments) to keep the list restricted to request labour.
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [requests]);
+    
+    // Re-include mechanics from assignments so they can be selected in dropdowns
+    Object.values(assignments).forEach((st: SuratTugas) => {
+      if (st.mechanicName && st.mechanicName.trim()) {
+        const norm = normalize(st.mechanicName);
+        if (!namesMap.has(norm)) {
+          namesMap.set(norm, st.mechanicName.trim());
+        }
+      }
+    });
+    
+    return Array.from(namesMap.values()).sort((a, b) => a.localeCompare(b));
+  }, [requests, assignments]);
   const filteredRequests = useMemo(() => {
     const filtered = requests.filter(req => {
       // 1. Search Query Match
@@ -279,25 +306,54 @@ export default function App() {
         }
         
         if (shouldUpdateFailureInformations && rawData.failureInformations) {
-          localStorage.setItem('failure_informations', JSON.stringify(rawData.failureInformations));
-          window.dispatchEvent(new Event('fiDataUpdated'));
+          const localFailureInfo = JSON.parse(localStorage.getItem('failure_informations') || '[]');
+          if (isAutoSync && rawData.failureInformations.length === 0 && localFailureInfo.length > 0) {
+            console.warn("Auto-sync returned 0 Failure Informations. Ignoring to prevent data loss.");
+          } else {
+            localStorage.setItem('failure_informations', JSON.stringify(rawData.failureInformations));
+            window.dispatchEvent(new Event('fiDataUpdated'));
+          }
         }
 
-        if (shouldUpdateSuratTugas && rawData.suratTugas) {
-          const assignmentsRecord: Record<string, any> = {};
-          rawData.suratTugas.forEach((st: any) => {
-             if (st.mechanicName) {
-               assignmentsRecord[st.mechanicName.toUpperCase()] = {
-                 mechanicName: st.mechanicName.toUpperCase(),
-                 startDate: st.startDate || '',
-                 endDate: st.endDate || '',
-                 lastDateDeclaration: st.lastDateDeclaration || '',
-                 statusTugas: st.statusTugas || ''
-               };
-             }
-          });
-          localStorage.setItem('surat_tugas_assignments', JSON.stringify(assignmentsRecord));
-          window.dispatchEvent(new Event('suratTugasUpdated'));
+        if (shouldUpdateSuratTugas) {
+          const currentLocal = JSON.parse(localStorage.getItem('surat_tugas_assignments') || '{}');
+          const assignmentsRecord: Record<string, any> = { ...currentLocal };
+          
+          if (rawData.suratTugas && Array.isArray(rawData.suratTugas)) {
+            // De-duplicate incoming sheet data: map normalized name -> best record
+            const sheetRecords: Record<string, any> = {};
+            rawData.suratTugas.forEach((st: any) => {
+              if (st.mechanicName) {
+                const normalized = st.mechanicName.trim().toUpperCase();
+                const existing = sheetRecords[normalized];
+                
+                // Keep the record that has more data (e.g., startDate or endDate)
+                if (!existing || (!existing.startDate && st.startDate)) {
+                  sheetRecords[normalized] = {
+                    mechanicName: st.mechanicName.trim(), 
+                    startDate: st.startDate || '',
+                    endDate: st.endDate || '',
+                    lastDateDeclaration: st.lastDateDeclaration || '',
+                    statusTugas: st.statusTugas || 'Surat Tugas'
+                  };
+                }
+              }
+            });
+
+            const localSTCount = Object.keys(currentLocal).length;
+            const sheetCount = Object.keys(sheetRecords).length;
+            
+            // If it's a confirmed empty fetch during auto-sync, be cautious
+            if (isAutoSync && sheetCount === 0 && localSTCount > 5) {
+               console.warn("Auto-sync returned 0 Surat Tugas. Ignoring to prevent data loss.");
+            } else {
+              // Merge sheet records into assignments (remote priority for overlapping)
+              Object.keys(sheetRecords).forEach(key => {
+                assignmentsRecord[key] = sheetRecords[key];
+              });
+              saveAssignmentsToStateAndStorage(assignmentsRecord);
+            }
+          }
         }
       } else {
         throw new Error('Format balikan JSON tidak valid (bukan Array dan bukan Object yang diharapkan).');
@@ -334,7 +390,14 @@ export default function App() {
           aksi: item.aksi || ''
         }));
 
-        saveRequestsToStateAndStorage(sanitized);
+        // Safeguard: If we have local data and sync returns 0 rows, 
+        // we might ignore it during auto-sync to prevent "disappearing" data if it's a transient failure
+        const localCount = requests.length;
+        if (isAutoSync && sanitized.length === 0 && localCount > 0) {
+          console.warn("Auto-sync returned 0 Service Requests. Ignoring to prevent data loss.");
+        } else {
+          saveRequestsToStateAndStorage(sanitized);
+        }
       }
       
       setScriptUrl(url);

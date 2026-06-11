@@ -67,8 +67,13 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
       }
     }
 
-    const handleUpdate = () => {
-      loadAssignments();
+    const handleUpdate = (e: any) => {
+      if (e instanceof CustomEvent && e.detail) {
+        setAssignments(e.detail);
+        setRefreshKey(prev => prev + 1);
+      } else {
+        loadAssignments();
+      }
     };
 
     window.addEventListener('suratTugasUpdated', handleUpdate);
@@ -148,13 +153,15 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
       lastDateDeclaration
     };
     
+    const key = mechanicName.trim().toUpperCase();
     const updated = {
       ...assignments,
-      [mechanicName]: assignmentToSave
+      [key]: assignmentToSave
     };
     setAssignments(updated);
     setRefreshKey(prev => prev + 1);
     localStorage.setItem('surat_tugas_assignments', JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('suratTugasUpdated', { detail: updated }));
 
     // Remove from deleted list if it was there
     const updatedDeleted = deletedMechanics.filter(d => d.trim().toLowerCase() !== mechanicName.trim().toLowerCase());
@@ -184,12 +191,14 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
 
   // Clear specific assignment
   const handleClear = async (mechanicName: string) => {
+    const key = mechanicName.trim().toUpperCase();
     const updated = { ...assignments };
-    const existing = updated[mechanicName];
-    delete updated[mechanicName];
+    const existing = updated[key];
+    delete updated[key];
     setAssignments(updated);
     setRefreshKey(prev => prev + 1);
     localStorage.setItem('surat_tugas_assignments', JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('suratTugasUpdated', { detail: updated }));
     
     const scriptUrl = localStorage.getItem('gs_script_url');
     if (scriptUrl && existing) {
@@ -212,9 +221,11 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
   // Clear all assignments
   const handleClearAll = () => {
     if (window.confirm('Apakah Anda yakin ingin membersihkan semua surat tugas mekanik?')) {
-      setAssignments({});
+      const empty = {};
+      setAssignments(empty);
       setRefreshKey(prev => prev + 1);
       localStorage.removeItem('surat_tugas_assignments');
+      window.dispatchEvent(new CustomEvent('suratTugasUpdated', { detail: empty }));
     }
   };
 
@@ -227,12 +238,14 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
       localStorage.setItem('surat_tugas_deleted', JSON.stringify(updatedDeleted));
       
       // Also remove from assignments if it's there
+      const key = trimmed.toUpperCase();
       const updatedAssignments = { ...assignments };
-      if (updatedAssignments[trimmed]) {
-        delete updatedAssignments[trimmed];
+      if (updatedAssignments[key]) {
+        delete updatedAssignments[key];
         setAssignments(updatedAssignments);
         setRefreshKey(prev => prev + 1);
         localStorage.setItem('surat_tugas_assignments', JSON.stringify(updatedAssignments));
+        window.dispatchEvent(new CustomEvent('suratTugasUpdated', { detail: updatedAssignments }));
         
         // Sync delete to Google Sheets
         const scriptUrl = localStorage.getItem('gs_script_url');
@@ -298,9 +311,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
   const getUniqueMechanics = (): string[] => {
     // Map to store normalizedName -> OriginalName
     const names = new Map<string, string>();
-    
-    // Help normalize names (lowercase, trim)
-    const normalize = (name: string) => name.trim().toLowerCase();
+    const normalize = (name: string) => name.trim().toUpperCase();
 
     requests.forEach(r => {
       [r.labour1, r.labour2, r.labour3, r.labour4, r.labour5, r.labour6].forEach(labour => {
@@ -314,10 +325,12 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
     });
     
     // Add manually assigned mechanics from localStorage
-    Object.keys(assignments).forEach(name => {
-      const norm = normalize(name);
-      if (!names.has(norm)) {
-        names.set(norm, name);
+    Object.values(assignments).forEach((st: SuratTugas) => {
+      if (st.mechanicName && st.mechanicName.trim()) {
+        const norm = normalize(st.mechanicName);
+        if (!names.has(norm)) {
+          names.set(norm, st.mechanicName.trim());
+        }
       }
     });
     
