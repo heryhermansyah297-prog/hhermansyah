@@ -100,6 +100,8 @@ export default function App() {
   const [filterUc3Status, setFilterUc3Status] = useState<string>('All');
   const [filterLocation, setFilterLocation] = useState<string>('All');
 
+  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+
   // Sync automatically on start if we have a URL
   useEffect(() => {
     let initialUrl = DEFAULT_SCRIPT_URL;
@@ -113,7 +115,10 @@ export default function App() {
     if (initialUrl) {
       setIsSyncing(true);
       handleSyncWithGoogleAppScript(initialUrl, true)
-        .then(() => console.log("Initial load sync complete"))
+        .then(() => {
+          console.log("Initial load sync complete");
+          setLastSyncTime(Date.now());
+        })
         .catch(e => console.error("Initial load sync failed:", e))
         .finally(() => setIsSyncing(false));
     }
@@ -338,19 +343,24 @@ export default function App() {
                 const normalized = mName.trim().toUpperCase();
                 const existing = sheetRecords[normalized];
                 
+                // Keep all original fields from the sheet item to prevent data loss
+                const mergedRecord = {
+                  ...(existing || {}),
+                  ...st, // Spread ALL original fields from Google Sheet
+                  mechanicName: mName.trim(), 
+                  startDate: st.startDate || st['ST MULAI'] || '',
+                  endDate: st.endDate || st['ST SELESAI'] || '',
+                  lastDateDeclaration: st.lastDateDeclaration || st['LAST DATE DECLARATION'] || '',
+                  statusTugas: st.statusTugas || st['STATUS TUGAS'] || 'Surat Tugas',
+                  deklarasi: st.deklarasi || st['DEKLARASI (%)'] || '',
+                  hariSt: st.hariSt || st['HARI ST'] || '',
+                  kpiScore: st.kpiScore || st['PENCAPAIAN KPI (SENIN-JUMAT)'] || '',
+                  tindakan: st.tindakan || st['TINDAKAN'] || ''
+                };
+
                 // Keep the record that has more data (e.g., startDate or endDate)
                 if (!existing || (!existing.startDate && (st.startDate || st['ST MULAI']))) {
-                  sheetRecords[normalized] = {
-                    mechanicName: mName.trim(), 
-                    startDate: st.startDate || st['ST MULAI'] || '',
-                    endDate: st.endDate || st['ST SELESAI'] || '',
-                    lastDateDeclaration: st.lastDateDeclaration || st['LAST DATE DECLARATION'] || '',
-                    statusTugas: st.statusTugas || st['STATUS TUGAS'] || 'Surat Tugas',
-                    deklarasi: st.deklarasi || st['DEKLARASI (%)'] || '',
-                    hariSt: st.hariSt || st['HARI ST'] || '',
-                    kpiScore: st.kpiScore || st['PENCAPAIAN KPI (SENIN-JUMAT)'] || '',
-                    tindakan: st.tindakan || st['TINDAKAN'] || ''
-                  };
+                  sheetRecords[normalized] = mergedRecord;
                 }
               }
             });
@@ -375,8 +385,9 @@ export default function App() {
       }
 
       if (shouldUpdateServiceRequests) {
-        // Map rawData to guarantee id presence
+        // Map rawData to guarantee id presence while preserving ALL other original fields
         const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
+          ...item, // Preserve all original spreadsheet columns
           id: item.id || (idx + 1).toString(),
           customerName: item.customerName || item['Customer Name'] || '',
           srNumber: item.srNumber || item['Nomor SR'] || '',
@@ -430,6 +441,7 @@ export default function App() {
       localStorage.setItem('gs_script_url', url);
       
       if (!isAutoSync) {
+        setLastSyncTime(Date.now());
         const srMsg = shouldUpdateServiceRequests ? `Service Requests: ${srData.length} baris` : 'Service Requests: Dipertahankan (tidak ada di spreadsheet)';
         const fiMsg = shouldUpdateFailureInformations ? `Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0} baris` : 'Failure Informations: Dipertahankan (tidak ada di spreadsheet)';
         const stMsg = shouldUpdateSuratTugas ? `KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0} baris` : 'KPI & Surat Tugas: Dipertahankan (tidak ada di spreadsheet)';
@@ -561,7 +573,15 @@ export default function App() {
       alert('Tidak ada data SR lokal untuk didorong ke Google Sheets.');
       return;
     }
-    if (!window.confirm(`Anda akan mereplace SEMUA baris Service Request di Sheet dengan ${requests.length} data ini. Yakin?`)) {
+    
+    // Safety check: Jangan izinkan push jika belum pernah fetch di sesi ini
+    if (!lastSyncTime) {
+      if (!window.confirm('Dashboard belum melakukan sinkronisasi dengan Google Sheet di sesi ini. Melakukan push sekarang berisiko menimpa data terbaru di Sheet dengan data lokal yang mungkin usang. Lanjutkan?')) {
+        return;
+      }
+    }
+
+    if (!window.confirm(`Anda akan mereplace SEMUA baris Service Request di Sheet dengan ${requests.length} data ini. Seluruh kolom asli akan dipertahankan berdasarkan data terakhir yang ditarik. Yakin?`)) {
       return;
     }
     const scriptUrl = localStorage.getItem('gs_script_url');

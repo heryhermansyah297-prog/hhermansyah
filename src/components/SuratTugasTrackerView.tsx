@@ -276,12 +276,14 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
       alert('Tidak ada data mekanik lokal untuk didorong ke Google Sheets.');
       return;
     }
-    if (!window.confirm(`Anda akan mereplace SEMUA baris Surat Tugas di Sheet dengan ${list.length} data ini. Yakin?`)) {
-      return;
-    }
+
     const scriptUrl = localStorage.getItem('gs_script_url');
     if (!scriptUrl) {
       alert('Google Apps Script URL belum diatur di menu Sinkronisasi!');
+      return;
+    }
+
+    if (!window.confirm(`Anda akan mereplace SEMUA baris Surat Tugas di Sheet dengan ${list.length} data ini. Kolom tambahan yang tidak ada di dashboard (A-AV) akan TETAP DIPERTAHANKAN sesuai data terakhir yang ditarik. Yakin?`)) {
       return;
     }
     setIsPushing(true);

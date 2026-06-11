@@ -234,18 +234,36 @@ function doPost(e) {
     var headers = rows[0].map(function(h) { return h.toString().trim(); });
 
     if (action === 'bulk_replace') {
-      if (sheet.getLastRow() > 1) {
-        sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+      if (!payload || !Array.isArray(payload)) return errorResponse("Payload tidak valid untuk bulk_replace.");
+      
+      // Safety guard: Jangan hapus data jika payload kosong (mungkin bug di dashboard)
+      // kecuali user memang sengaja ingin mengosongkan (bisa dicek lewat flag lain jika perlu)
+      if (payload.length === 0 && sheet.getLastRow() > 10) {
+        return errorResponse("Push dibatalkan: Dashboard mengirim 0 data untuk sheet yang berisi banyak baris. Mohon refresh dashboard dulu.");
       }
-      if (payload && Array.isArray(payload)) {
+
+      if (sheet.getLastRow() > 1) {
+        // Hanya bersihkan baris data, biarkan header tetap ada.
+        // Gunakan getLastColumn untuk memastikan semua kolom dibersihkan sebelum ditimpa data baru
+        sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(headers.length, sheet.getLastColumn())).clearContent();
+      }
+      
+      if (payload.length > 0) {
         var valuesToWrite = [];
         for (var i = 0; i < payload.length; i++) {
           var item = payload[i];
           var rowData = new Array(headers.length);
           for (var j = 0; j < headers.length; j++) {
-            var key = mapHeaderToKey(headers[j], type);
-            // Coba key mapping dashboard ATAU nama header asli
-            var val = (key && item[key] !== undefined) ? item[key] : (item[headers[j]] || "");
+            var headerName = headers[j];
+            var key = mapHeaderToKey(headerName, type);
+            
+            // Prioritas: key mapping dashboard -> nama header asli dari objek item
+            var val = "";
+            if (key && item[key] !== undefined) {
+              val = item[key];
+            } else if (item[headerName] !== undefined) {
+              val = item[headerName];
+            }
             rowData[j] = val;
           }
           valuesToWrite.push(rowData);
