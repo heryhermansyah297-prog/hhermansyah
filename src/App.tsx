@@ -85,6 +85,7 @@ export default function App() {
   const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwS75B4D0b8pG9lmvqqv6UkltCo9QWp8R50KGfZ60r6NXLRsJ5Vg7M78QRWnsGOcfnl/exec';
   const [scriptUrl, setScriptUrl] = useState<string>(DEFAULT_SCRIPT_URL);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [cloudStatus, setCloudStatus] = useState<'synced' | 'saving' | 'error' | 'idle'>('idle');
   const [activeTab, setActiveTab] = useState<'table' | 'guide' | 'failure' | 'surattugas'>('table');
   const [showCharts, setShowCharts] = useState<boolean>(true);
   
@@ -539,11 +540,9 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
 
     // Push to Google Apps Script if sync is active
     if (scriptUrl) {
+      setCloudStatus('saving');
       try {
-        const payload = reqData.id ? freshData : { ...freshData, action: 'add' };
-        
-        // Use a background fetch to keep UI snappy
-        fetch(scriptUrl, {
+        const res = await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ 
@@ -551,10 +550,18 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
             type: 'service_request', 
             data: freshData 
           })
-        }).catch(err => console.error("Async sync background failed:", err));
+        });
         
+        const result = await res.json();
+        if (result.status === 'success') {
+          setCloudStatus('synced');
+          setTimeout(() => setCloudStatus('idle'), 3000);
+        } else {
+          setCloudStatus('error');
+        }
       } catch (err) {
-        console.error("Failed to setup sync to Google Sheets", err);
+        console.error("Failed to sync to Google Sheets", err);
+        setCloudStatus('error');
       }
     }
   };
@@ -567,16 +574,22 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
       
       // Push delete event to Google Apps Script
       if (scriptUrl) {
+        setCloudStatus('saving');
         try {
           const res = await fetch(scriptUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'delete', type: 'service_request', data: { id, srNumber } })
           });
-          if (!res.ok) throw new Error('CORS/Server Error');
+          if (res.ok) {
+            setCloudStatus('synced');
+            setTimeout(() => setCloudStatus('idle'), 3000);
+          } else {
+            setCloudStatus('error');
+          }
         } catch (err) {
           console.error("Failed to sync delete to Google Sheets", err);
-          alert('Data telah dihapus lokal, tetapi GAGAL dihapus di Google Sheet. Mohon cek koneksi atau deployment Apps Script.');
+          setCloudStatus('error');
         }
       }
     }
@@ -708,6 +721,24 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Cloud Sync Status */}
+            {scriptUrl && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#18181B] border border-[#27272A] rounded-xl mr-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  cloudStatus === 'synced' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
+                  cloudStatus === 'saving' ? 'bg-amber-500 animate-pulse' :
+                  cloudStatus === 'error' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' :
+                  'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]'
+                }`} />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                  {cloudStatus === 'synced' ? 'Cloud Terupdate' :
+                   cloudStatus === 'saving' ? 'Menyimpan ke Cloud...' :
+                   cloudStatus === 'error' ? 'Gagal Sinkron' :
+                   'Cloud Terhubung'}
+                </span>
+              </div>
+            )}
+
             {/* Sync Quick Button */}
             {scriptUrl && (
               <button

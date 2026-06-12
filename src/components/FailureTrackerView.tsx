@@ -51,6 +51,7 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FailureInformation | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   // Form Fields State
   const [formData, setFormData] = useState({
@@ -223,15 +224,22 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       saveToStorage(updated);
       
       if (scriptUrl) {
+        setSaveStatus('saving');
         try {
-          // Sending only what's needed for matching, including the distinct identifier fiNumber
-          await fetch(scriptUrl, {
+          const res = await fetch(scriptUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: 'delete', type: 'failure_information', data: { id, fiNumber: number } })
           });
+          if (res.ok) {
+            setSaveStatus('success');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+          } else {
+            setSaveStatus('error');
+          }
         } catch (err) {
           console.error("Failed to sync delete to Google Sheets", err);
+          setSaveStatus('error');
         }
       }
     }
@@ -270,8 +278,9 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
     }
     
     if (scriptUrl) {
+      setSaveStatus('saving');
       try {
-        await fetch(scriptUrl, {
+        const res = await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ 
@@ -280,8 +289,16 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
             data: itemToSync 
           })
         });
+        const result = await res.json();
+        if (result.status === 'success') {
+          setSaveStatus('success');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        } else {
+          setSaveStatus('error');
+        }
       } catch (err) {
         console.error("Failed to sync change to Google Sheets", err);
+        setSaveStatus('error');
       }
     }
     

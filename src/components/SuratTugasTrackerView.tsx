@@ -41,6 +41,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
   const [mechanicToDelete, setMechanicToDelete] = useState('');
   const [deletedMechanics, setDeletedMechanics] = useState<string[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   // Load from localStorage on initialization
   useEffect(() => {
@@ -169,10 +170,11 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
     // Sync to Google Sheets
     const scriptUrl = localStorage.getItem('gs_script_url');
     if (scriptUrl) {
+      setSaveStatus('saving');
       try {
         const payloadWithMetrics = computeMetricsForAssignment(assignmentToSave);
         
-        await fetch(scriptUrl, {
+        const res = await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
@@ -181,8 +183,16 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
             data: payloadWithMetrics
           })
         });
+        const result = await res.json();
+        if (result.status === 'success') {
+          setSaveStatus('success');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        } else {
+          setSaveStatus('error');
+        }
       } catch (err) {
         console.error("Failed to sync surat tugas to Google Sheets", err);
+        setSaveStatus('error');
       }
     }
   };
@@ -200,8 +210,9 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
     
     const scriptUrl = localStorage.getItem('gs_script_url');
     if (scriptUrl && existing) {
+      setSaveStatus('saving');
       try {
-        await fetch(scriptUrl, {
+        const res = await fetch(scriptUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
@@ -210,8 +221,15 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
             data: { mechanicName }
           })
         });
+        if (res.ok) {
+          setSaveStatus('success');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        } else {
+          setSaveStatus('error');
+        }
       } catch (err) {
         console.error("Failed to sync delete to Google Sheets", err);
+        setSaveStatus('error');
       }
     }
   };

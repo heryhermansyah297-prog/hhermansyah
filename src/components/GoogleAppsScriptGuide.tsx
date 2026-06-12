@@ -319,11 +319,18 @@ function doPost(e) {
         newRow[j] = val;
       }
       
-      // Cari baris kosong pertama mulai dari baris 2
+      // Cari baris kosong pertama secara akurat
+      // Cek apakah baris benar-benar kosong (setidaknya 3 kolom pertama) untuk memastikan tidak menimpa
       var targetRow = -1;
-      for (var r = 1; r < rows.length; r++) {
-        // Cek apakah kolom ID di baris ini kosong
-        if (rows[r][idColIdx] === "" || rows[r][idColIdx] === undefined || rows[r][idColIdx] === null) {
+      var lastRow = sheet.getLastRow();
+      
+      // Scan 500 baris pertama untuk mencari 'lubang' kosong jika ada
+      for (var r = 1; r < Math.max(lastRow + 1, 500); r++) {
+        var checkRow = rows[r] || [];
+        // Jika kolom ID kosong dan kolom kedua/ketiga juga kosong, anggap ini baris kosong yang aman
+        if ((!checkRow[idColIdx] || checkRow[idColIdx] === "") && 
+            (!checkRow[0] || checkRow[0] === "") && 
+            (!checkRow[1] || checkRow[1] === "")) {
           targetRow = r + 1;
           break;
         }
