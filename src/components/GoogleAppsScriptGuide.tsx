@@ -318,7 +318,22 @@ function doPost(e) {
         }
         newRow[j] = val;
       }
-      sheet.appendRow(newRow);
+      
+      // Cari baris kosong pertama mulai dari baris 2
+      var targetRow = -1;
+      for (var r = 1; r < rows.length; r++) {
+        // Cek apakah kolom ID di baris ini kosong
+        if (rows[r][idColIdx] === "" || rows[r][idColIdx] === undefined || rows[r][idColIdx] === null) {
+          targetRow = r + 1;
+          break;
+        }
+      }
+      
+      if (targetRow > -1) {
+        sheet.getRange(targetRow, 1, 1, headers.length).setValues([newRow]);
+      } else {
+        sheet.appendRow(newRow);
+      }
       return successResponse();
     }
 
