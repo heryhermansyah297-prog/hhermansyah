@@ -490,16 +490,28 @@ export default function App() {
         const fiStatus = shouldUpdateFailureInformations ? (rawData.failureInformations.length > 0 ? "🟢" : "🟡") : "⚪";
         const stStatus = shouldUpdateSuratTugas ? (rawData.suratTugas.length > 0 ? "🟢" : "🟡") : "⚪";
 
-        const srMsg = shouldUpdateServiceRequests ? `${srStatus} Service Requests: ${srData.length} baris` : `${srStatus} Service Requests: Dipertahankan`;
-        const fiMsg = shouldUpdateFailureInformations ? `${fiStatus} Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0} baris` : `${fiStatus} Failure Informations: Dipertahankan`;
-        const stMsg = shouldUpdateSuratTugas ? `${stStatus} KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0} baris` : `${stStatus} KPI & Surat Tugas: Dipertahankan`;
+        const srMsg = shouldUpdateServiceRequests 
+          ? `${srStatus} Service Requests: ${srData.length} baris` 
+          : `${srStatus} Service Requests: Dipertahankan (Sheet tidak ditemukan)`;
         
-        alert(`Status Sinkronisasi Google Sheet:
-- ${srMsg}
-- ${fiMsg}
-- ${stMsg}
+        const fiMsg = shouldUpdateFailureInformations 
+          ? `${fiStatus} Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0} baris` 
+          : `${fiStatus} Failure Informations: Dipertahankan (Sheet tidak ditemukan)`;
+        
+        const stMsg = shouldUpdateSuratTugas 
+          ? `${stStatus} KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0} baris` 
+          : `${stStatus} KPI & Surat Tugas: Dipertahankan (Sheet tidak ditemukan)`;
+        
+        alert(`SINKRONISASI SELESAI:
+------------------------------------------
+${srMsg}
+${fiMsg}
+${stMsg}
+------------------------------------------
 
-${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUpdateSuratTugas) ? "⚠️ Tidak ada sheet yang cocok ditemukan. Pastikan header sheet benar." : "✅ Sinkronisasi Selesai."}`);
+* "Dipertahankan" berarti data lokal tetap dijaga karena sheet target tidak ditemukan (Check header: 'NOMOR SR', 'NOMOR FI', atau 'NAMA MEKANIK').
+
+${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUpdateSuratTugas) ? "⚠️ Peringatan: Tidak ada sheet yang cocok." : "✅ Sinkronisasi Berhasil."}`);
       }
     } catch (err: any) {
       console.error('Apps script error:', err);
