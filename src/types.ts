@@ -41,6 +41,7 @@ export interface ServiceRequest {
   lastUpdated?: string;
   updatedBy?: string;
   segment?: string;
+  [key: string]: any; 
 }
 
 export interface SpreadsheetConfig {
@@ -61,6 +62,7 @@ export interface FailureInformation {
   partStatus?: string;
   planningProgress?: string;
   status?: string;
+  [key: string]: any;
 }
 
 export interface SuratTugas {
@@ -73,4 +75,5 @@ export interface SuratTugas {
   hariSt?: string | number;
   kpiScore?: string;
   tindakan?: string;
+  [key: string]: any;
 }

@@ -28,7 +28,7 @@ import {
   ArrowDownToLine
 } from 'lucide-react';
 
-import { ServiceRequest, SuratTugas } from './types';
+import { ServiceRequest, SuratTugas, FailureInformation } from './types';
 import { INITIAL_SERVICE_REQUESTS } from './data/mockData';
 import StatsCard from './components/StatsCard';
 import AddRequestModal from './components/AddRequestModal';
@@ -322,10 +322,37 @@ export default function App() {
         
         if (shouldUpdateFailureInformations && rawData.failureInformations) {
           const localFailureInfo = JSON.parse(localStorage.getItem('failure_informations') || '[]');
-          if (isAutoSync && rawData.failureInformations.length === 0 && localFailureInfo.length > 0) {
-            console.warn("Auto-sync returned 0 Failure Informations. Ignoring to prevent data loss.");
+          
+          if (rawData.failureInformations.length === 0 && localFailureInfo.length > 5) {
+            if (isAutoSync) {
+              console.warn("Auto-sync returned 0 Failure Informations. Ignoring to prevent data loss.");
+            } else {
+              if (!window.confirm("Sinkronisasi mengembalikan 0 data Failure Information. Apakah Anda yakin ingin mengosongkan dashboard?")) {
+                shouldUpdateFailureInformations = false;
+              } else {
+                localStorage.setItem('failure_informations', JSON.stringify([]));
+                window.dispatchEvent(new Event('fiDataUpdated'));
+              }
+            }
           } else {
-            localStorage.setItem('failure_informations', JSON.stringify(rawData.failureInformations));
+            // Map remote data while preserving ALL original fields from Sheet
+            const sanitizedFi: FailureInformation[] = rawData.failureInformations.map((item: any, idx: number) => ({
+              ...item, // Preserve columns Y to AI and any others
+              id: item.id || `fi-${idx}-${Date.now()}`,
+              customer: item.customer || item['CUSTOMER'] || '',
+              fiNumber: item.fiNumber || item['FI NUMBER'] || '',
+              fiDate: item.fiDate || item['FI DATE'] || '',
+              fiAging: parseInt(item.fiAging || item['FI AGING (DAYS)'] || item['FI AGING']) || 0,
+              fiStatus: item.fiStatus || item['FI STATUS'] || 'Waiting Decision',
+              partStatus: item.partStatus || item['PART STATUS'] || 'Waiting Part',
+              planningProgress: item.planningProgress || item['PLANNING PROGRESS'] || '',
+              evidentPm: item.evidentPm || item['EVIDENT PM'] || '',
+              createBy: item.createBy || item['CREATE BY'] || '',
+              action: item.action || item['ACTION'] || '',
+              status: item.status || item['STATUS'] || 'waiting decision'
+            }));
+
+            localStorage.setItem('failure_informations', JSON.stringify(sanitizedFi));
             window.dispatchEvent(new Event('fiDataUpdated'));
           }
         }

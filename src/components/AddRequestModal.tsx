@@ -56,7 +56,11 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData, uni
 
   useEffect(() => {
     if (editData) {
-      setFormData({
+      // Preserve all original fields (including unmapped columns from Sheet)
+      // but override with the known tracked form fields
+      setFormData(prev => ({
+        ...prev,
+        ...editData,
         customerName: editData.customerName || '',
         srNumber: editData.srNumber || '',
         woNumber: editData.woNumber || '',
@@ -92,7 +96,7 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData, uni
         lastUpdated: editData.lastUpdated || '',
         updatedBy: editData.updatedBy || '',
         segment: editData.segment || ''
-      });
+      }));
     } else {
       setFormData({
         customerName: '',

@@ -283,7 +283,7 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
       return;
     }
 
-    if (!window.confirm(`Anda akan mereplace SEMUA baris Surat Tugas di Sheet dengan ${list.length} data ini. Kolom tambahan yang tidak ada di dashboard (A-AV) akan TETAP DIPERTAHANKAN sesuai data terakhir yang ditarik. Yakin?`)) {
+    if (!window.confirm(`Anda akan mereplace SEMUA baris Surat Tugas di Sheet dengan ${list.length} data ini. Kolom tambahan yang tidak ada di dashboard (A-AI) akan TETAP DIPERTAHANKAN sesuai data terakhir yang ditarik. Yakin?`)) {
       return;
     }
     setIsPushing(true);

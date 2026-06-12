@@ -90,7 +90,7 @@ function doGet(e) {
       var type = 'unknown';
       
       // Deteksi Tipe Sheet berdasarkan kata kunci di Header
-      if (headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('NOMOR SR') > -1 || headersStr.indexOf('SR NO') > -1) {
+      if (headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('NOMOR SR') > -1 || headersStr.indexOf('SR NO') > -1 || headersStr.indexOf('CUSTOMER') > -1) {
         type = 'service_request';
         result.sheetsFound.serviceRequests = true;
       } else if (headersStr.indexOf('FI NUMBER') > -1 || headersStr.indexOf('NOMOR FI') > -1 || headersStr.indexOf('FI NO') > -1) {
@@ -196,10 +196,14 @@ function mapHeaderToKey(header, type) {
     if (h === "customer" || h === "pelanggan") return "customer";
     if (h === "finumber" || h === "nomorfi") return "fiNumber";
     if (h === "fidate" || h === "tanggalfi") return "fiDate";
-    if (h === "fiaging") return "fiAging";
+    if (h === "fiaging" || h === "aging") return "fiAging";
     if (h === "fistatus" || h === "statusfi") return "fiStatus";
-    if (h === "evidentpm") return "evidentPm";
-    if (h === "createby") return "createBy";
+    if (h === "partstatus" || h === "statuspart") return "partStatus";
+    if (h === "planningprogress" || h === "jadwalplanning") return "planningProgress";
+    if (h === "evidentpm" || h === "bukti") return "evidentPm";
+    if (h === "createby" || h === "dibuatoleh") return "createBy";
+    if (h === "action" || h === "aksi") return "action";
+    if (h === "status") return "status";
   }
   
   if (type === 'surat_tugas') {
@@ -207,11 +211,11 @@ function mapHeaderToKey(header, type) {
     if (h === "statustugas" || h === "statustugasmekanik") return "statusTugas";
     if (h === "stmulai" || h === "startdate") return "startDate";
     if (h === "stselesai" || h === "enddate") return "endDate";
-    if (h === "lastdatedeclaration") return "lastDateDeclaration";
-    if (h === "deklarasi") return "deklarasi";
-    if (h === "harist") return "hariSt";
-    if (h === "pencapaiankpi" || h === "kpimin") return "kpiScore";
-    if (h === "tindakan") return "tindakan";
+    if (h === "lastdatedeclaration" || h === "declarationdate") return "lastDateDeclaration";
+    if (h === "deklarasi" || h === "deklarasipersentase") return "deklarasi";
+    if (h === "harist" || h === "jumlahhari") return "hariSt";
+    if (h === "pencapaiankpi" || h === "kpimin" || h === "pencapaiankpiseniunjumat") return "kpiScore";
+    if (h === "tindakan" || h === "action") return "tindakan";
   }
   
   return null;
@@ -303,8 +307,16 @@ function doPost(e) {
     if (action === 'add') {
       var newRow = new Array(headers.length);
       for (var j = 0; j < headers.length; j++) {
-        var key = mapHeaderToKey(headers[j], type);
-        newRow[j] = (key && payload[key] !== undefined) ? payload[key] : "";
+        var headerName = headers[j];
+        var key = mapHeaderToKey(headerName, type);
+        var val = "";
+        
+        if (key && payload[key] !== undefined) {
+          val = payload[key];
+        } else if (payload[headerName] !== undefined) {
+          val = payload[headerName];
+        }
+        newRow[j] = val;
       }
       sheet.appendRow(newRow);
       return successResponse();
@@ -318,9 +330,18 @@ function doPost(e) {
             sheet.deleteRow(r + 1);
           } else if (action === 'update') {
             for (var j = 0; j < headers.length; j++) {
-              var key = mapHeaderToKey(headers[j], type);
+              var headerName = headers[j];
+              var key = mapHeaderToKey(headerName, type);
+              var newVal = undefined;
+              
               if (key && payload[key] !== undefined) {
-                sheet.getRange(r + 1, j + 1).setValue(payload[key]);
+                newVal = payload[key];
+              } else if (payload[headerName] !== undefined) {
+                newVal = payload[headerName];
+              }
+              
+              if (newVal !== undefined) {
+                sheet.getRange(r + 1, j + 1).setValue(newVal);
               }
             }
           }
@@ -482,22 +503,70 @@ function errorResponse(msg) {
             <div className="flex-1">
               <p className="font-semibold text-white">Sesuaikan Format Kolom target Anda</p>
               <p className="text-zinc-400 text-xs mt-1 leading-relaxed">
-                Google Sheet target harus memiliki 1 baris pertama yang berisi nama-nama kolom/header. Dashboard ini mendukung mapping otomatis dari Kolom AW sampai BE:
+                Google Sheet target harus memiliki 1 baris pertama yang berisi nama-nama kolom/header. Dashboard ini mendukung mapping otomatis untuk Service Request (Kolom A-X) dan Surat Tugas (Kolom AW-BE):
               </p>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-mono text-blue-400 bg-[#09090B] p-3 rounded-xl border border-zinc-800">
-                <div>AW: NAMA MEKANIK</div>
-                <div>AX: STATUS TUGAS</div>
-                <div>AY: ST MULAI</div>
-                <div>AZ: ST SELESAI</div>
-                <div>BA: LAST DECLARATION</div>
-                <div>BB: DEKLARASI (%)</div>
-                <div>BC: HARI ST</div>
-                <div>BD: PENCAPAIAN KPI</div>
-                <div>BE: TINDAKAN</div>
+              
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Service Request (Kolom A-X)</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[9px] font-mono text-emerald-400 bg-[#09090B] p-3 rounded-xl border border-zinc-800">
+                    <div>A: CUSTOMER NAME</div>
+                    <div>B: NOMOR SR</div>
+                    <div>C: NOMOR WO</div>
+                    <div>D: NOMOR UC3</div>
+                    <div>E: STATUS UC3</div>
+                    <div>F: ID TICKET</div>
+                    <div>G: TANGGAL SR</div>
+                    <div>H: SR AGING</div>
+                    <div>I: JADWAL PLANNING</div>
+                    <div>J: TANGGAL ACTION</div>
+                    <div>K: TANGGAL RFU</div>
+                    <div>L: KONDISI ALAT</div>
+                    <div>M: S/N</div>
+                    <div>N: MODEL</div>
+                    <div>O: DESKRIPSI MASALAH</div>
+                    <div>P: LOKASI / SEKTOR</div>
+                    <div>Q-V: MEKANIK 1-6</div>
+                    <div>W: STATUS KERJA</div>
+                    <div>X: LAPORAN AKTIVITAS</div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Failure Information (Kolom Y-AI)</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[9px] font-mono text-amber-400 bg-[#09090B] p-3 rounded-xl border border-zinc-800">
+                    <div>Y: CUSTOMER</div>
+                    <div>Z: FI NUMBER</div>
+                    <div>AA: FI DATE</div>
+                    <div>AB: FI AGING</div>
+                    <div>AC: FI STATUS</div>
+                    <div>AD: PART STATUS</div>
+                    <div>AE: PLANNING PROGRESS</div>
+                    <div>AF: EVIDENT PM</div>
+                    <div>AG: CREATE BY</div>
+                    <div>AH: ACTION</div>
+                    <div>AI: STATUS</div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Surat Tugas (Kolom AJ-AQ)</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[9px] font-mono text-blue-400 bg-[#09090B] p-3 rounded-xl border border-zinc-800">
+                    <div>AJ: NAMA MEKANIK</div>
+                    <div>AK: STATUS TUGAS</div>
+                    <div>AL: ST MULAI</div>
+                    <div>AM: ST SELESAI</div>
+                    <div>AN: LAST DATE DECLARATION</div>
+                    <div>AO: DEKLARASI (%)</div>
+                    <div>AP: HARI ST</div>
+                    <div>AQ: PENCAPAIAN KPI</div>
+                  </div>
+                </div>
               </div>
+
               <button
                 onClick={handleDownloadCSV}
-                className="mt-3 inline-flex items-center space-x-2 px-3.5 py-2 bg-[#09090B] border border-[#27272A] hover:bg-zinc-800 hover:text-white transition rounded-xl text-xs font-semibold text-zinc-200 cursor-pointer"
+                className="mt-4 inline-flex items-center space-x-2 px-3.5 py-2 bg-[#09090B] border border-[#27272A] hover:bg-zinc-800 hover:text-white transition rounded-xl text-xs font-semibold text-zinc-200 cursor-pointer"
               >
                 <FileDown className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Unduh Format Template CSV</span>

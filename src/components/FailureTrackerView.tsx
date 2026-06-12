@@ -63,6 +63,7 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
     createBy: '',
     partStatus: 'Waiting Part',
     planningProgress: '',
+    action: '',
     status: 'waiting decision'
   });
 
@@ -192,6 +193,7 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       createBy: 'Agung Kristianto',
       partStatus: 'Waiting Part',
       planningProgress: '',
+      action: '',
       status: 'waiting decision'
     });
     setIsModalOpen(true);
@@ -209,6 +211,7 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       createBy: item.createBy,
       partStatus: item.partStatus || 'Waiting Part',
       planningProgress: item.planningProgress || '',
+      action: item.action || '',
       status: item.status || 'waiting decision'
     });
     setIsModalOpen(true);
@@ -322,7 +325,16 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
       alert('Tidak ada data lokal untuk didorong ke Google Sheets.');
       return;
     }
-    if (!window.confirm(`Anda akan mereplace SEMUA baris Failure Information di Sheet dengan ${fiList.length} baris data ini. Yakin?`)) {
+
+    // Check if synced in this session
+    const lastSync = localStorage.getItem('last_sync_time');
+    if (!lastSync) {
+      if (!window.confirm('Dashboard belum melakukan sinkronisasi dengan Google Sheet di sesi ini. Melakukan push sekarang berisiko menimpa data terbaru di Sheet dengan data lokal yang mungkin usang. Lanjutkan?')) {
+        return;
+      }
+    }
+
+    if (!window.confirm(`Anda akan mereplace SEMUA baris Failure Information di Sheet dengan ${fiList.length} data ini. Seluruh kolom asli (Y-AI) akan dipertahankan berdasarkan data terakhir yang ditarik. Yakin?`)) {
       return;
     }
     if (!scriptUrl) {
@@ -944,7 +956,21 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
                   </div>
                 </div>
 
-                {/* Status DB Dropdown (AW) */}
+                {/* Action Field (Column AH) */}
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">
+                    Action (Column AH)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: 2026-06-12"
+                    value={formData.action}
+                    onChange={(e) => setFormData({ ...formData, action: e.target.value })}
+                    className="w-full px-3 py-2 bg-[#09090B] border border-[#27272A] rounded-xl text-white text-xs focus:outline-none focus:border-amber-500 transition-colors uppercase"
+                  />
+                </div>
+
+                {/* Status DB Dropdown (Column AI) */}
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-amber-500 mb-1.5 tracking-widest flex items-center gap-1.5">
