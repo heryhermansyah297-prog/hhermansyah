@@ -557,15 +557,6 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
           <button
-            onClick={handlePushAllToSheets}
-            disabled={isPushing}
-            className={`inline-flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-[10px] font-bold tracking-wider uppercase transition ${isPushing ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed' : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-900/40 cursor-pointer'}`}
-          >
-            <ArrowDownToLine className="w-3.5 h-3.5 rotate-180" />
-            <span>{isPushing ? 'Pushing...' : 'Push ke Sheet'}</span>
-          </button>
-        
-          <button
             onClick={handleAddNewMechanic}
             className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-900/40 rounded-lg text-[10px] font-bold tracking-wider uppercase transition cursor-pointer"
           >

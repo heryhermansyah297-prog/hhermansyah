@@ -964,14 +964,6 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                    <button
-                      onClick={handlePushAllToSheets}
-                      disabled={isPushing}
-                      className={`inline-flex items-center space-x-1.5 px-3 py-1.5 border rounded-lg text-[10px] font-bold tracking-wider uppercase transition ${isPushing ? 'bg-zinc-800 text-zinc-500 border-zinc-700 cursor-not-allowed' : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-900/40 cursor-pointer'}`}
-                    >
-                      <ArrowDownToLine className="w-3.5 h-3.5 rotate-180" />
-                      <span>{isPushing ? 'Pushing...' : 'Push ke Sheet'}</span>
-                    </button>
                     <span className="text-[10px] font-medium text-zinc-400 bg-[#09090B] border border-[#27272A] px-2.5 py-1.5 rounded-lg">
                       Sektor Sektor Aktif: <span className="text-blue-400 font-extrabold">{filterLocation === 'All' ? 'Semua Wilayah' : filterLocation}</span>
                     </span>

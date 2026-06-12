@@ -557,15 +557,6 @@ export default function FailureTrackerView({ scriptUrl }: { scriptUrl?: string }
               <FileDown className="w-3 text-zinc-500" />
               <span>Ekspor FI (CSV)</span>
             </button>
-            <span className="text-zinc-800">|</span>
-            <button
-              onClick={handlePushAllToSheets}
-              disabled={isPushing}
-              className={`inline-flex items-center space-x-1 py-1 transition font-medium ${isPushing ? 'text-zinc-600 cursor-not-allowed' : 'text-blue-400 hover:text-blue-300 cursor-pointer'}`}
-            >
-              <ArrowDownToLine className="w-3 h-3 rotate-180" />
-              <span>{isPushing ? 'Menyinkronkan...' : 'Push Semua Data ke Google Sheet'}</span>
-            </button>
           </div>
         </div>
 
