@@ -369,8 +369,16 @@ export default function App() {
             const sheetCount = Object.keys(sheetRecords).length;
             
             // If it's a confirmed empty fetch during auto-sync, be cautious
-            if (isAutoSync && sheetCount === 0 && localSTCount > 5) {
-               console.warn("Auto-sync returned 0 Surat Tugas. Ignoring to prevent data loss.");
+            if (sheetCount === 0 && localSTCount > 5) {
+              if (isAutoSync) {
+                console.warn("Auto-sync returned 0 Surat Tugas. Ignoring to prevent data loss.");
+              } else {
+                if (!window.confirm("Sinkronisasi mengembalikan 0 data Surat Tugas (Mekanik). Apakah Anda yakin ingin mengosongkan daftar mekanik di dashboard? (Disarankan: Periksa header sheet target Anda)")) {
+                  shouldUpdateSuratTugas = false;
+                } else {
+                  saveAssignmentsToStateAndStorage(assignmentsRecord);
+                }
+              }
             } else {
               // Merge sheet records into assignments (remote priority for overlapping)
               Object.keys(sheetRecords).forEach(key => {
@@ -430,8 +438,16 @@ export default function App() {
         // Safeguard: If we have local data and sync returns 0 rows, 
         // we might ignore it during auto-sync to prevent "disappearing" data if it's a transient failure
         const localCount = requests.length;
-        if (isAutoSync && sanitized.length === 0 && localCount > 0) {
-          console.warn("Auto-sync returned 0 Service Requests. Ignoring to prevent data loss.");
+        if (sanitized.length === 0 && localCount > 5) {
+          if (isAutoSync) {
+            console.warn("Auto-sync returned 0 Service Requests. Ignoring to prevent data loss.");
+          } else {
+            if (!window.confirm("Sinkronisasi mengembalikan 0 data Service Request. Apakah Anda yakin ingin mengosongkan dashboard? (Disarankan: Periksa header sheet target Anda)")) {
+              shouldUpdateServiceRequests = false;
+            } else {
+              saveRequestsToStateAndStorage(sanitized);
+            }
+          }
         } else {
           saveRequestsToStateAndStorage(sanitized);
         }
@@ -442,10 +458,20 @@ export default function App() {
       
       if (!isAutoSync) {
         setLastSyncTime(Date.now());
-        const srMsg = shouldUpdateServiceRequests ? `Service Requests: ${srData.length} baris` : 'Service Requests: Dipertahankan (tidak ada di spreadsheet)';
-        const fiMsg = shouldUpdateFailureInformations ? `Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0} baris` : 'Failure Informations: Dipertahankan (tidak ada di spreadsheet)';
-        const stMsg = shouldUpdateSuratTugas ? `KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0} baris` : 'KPI & Surat Tugas: Dipertahankan (tidak ada di spreadsheet)';
-        alert(`Berhasil menyinkronkan data dari Google Sheet! 🎉\n\n- ${srMsg}\n- ${fiMsg}\n- ${stMsg}`);
+        const srStatus = shouldUpdateServiceRequests ? (srData.length > 0 ? "🟢" : "🟡") : "⚪";
+        const fiStatus = shouldUpdateFailureInformations ? (rawData.failureInformations.length > 0 ? "🟢" : "🟡") : "⚪";
+        const stStatus = shouldUpdateSuratTugas ? (rawData.suratTugas.length > 0 ? "🟢" : "🟡") : "⚪";
+
+        const srMsg = shouldUpdateServiceRequests ? `${srStatus} Service Requests: ${srData.length} baris` : `${srStatus} Service Requests: Dipertahankan`;
+        const fiMsg = shouldUpdateFailureInformations ? `${fiStatus} Failure Informations: ${rawData && rawData.failureInformations ? rawData.failureInformations.length : 0} baris` : `${fiStatus} Failure Informations: Dipertahankan`;
+        const stMsg = shouldUpdateSuratTugas ? `${stStatus} KPI & Surat Tugas: ${rawData && rawData.suratTugas ? rawData.suratTugas.length : 0} baris` : `${stStatus} KPI & Surat Tugas: Dipertahankan`;
+        
+        alert(`Status Sinkronisasi Google Sheet:
+- ${srMsg}
+- ${fiMsg}
+- ${stMsg}
+
+${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUpdateSuratTugas) ? "⚠️ Tidak ada sheet yang cocok ditemukan. Pastikan header sheet benar." : "✅ Sinkronisasi Selesai."}`);
       }
     } catch (err: any) {
       console.error('Apps script error:', err);

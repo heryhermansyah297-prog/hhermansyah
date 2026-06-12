@@ -62,14 +62,25 @@ function doGet(e) {
         serviceRequests: false,
         failureInformations: false,
         suratTugas: false
+      },
+      debuginfo: {
+        processedSheets: []
       }
     };
     
     // Identifikasi sheet berdasarkan header yang ada di baris pertama
     for (var s = 0; s < sheets.length; s++) {
       var sheet = sheets[s];
+      var sheetName = sheet.getName();
       var rows = sheet.getDataRange().getValues();
-      if (rows.length <= 1) continue;
+      
+      result.debuginfo.processedSheets.push({
+        name: sheetName,
+        rows: rows.length,
+        headers: rows.length > 0 ? rows[0].join('|').slice(0, 50) + "..." : "EMPTY"
+      });
+
+      if (rows.length <= 0) continue;
       
       var headers = rows[0].map(function(h) {
         return h.toString().trim();
@@ -79,18 +90,21 @@ function doGet(e) {
       var type = 'unknown';
       
       // Deteksi Tipe Sheet berdasarkan kata kunci di Header
-      if (headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('NOMOR SR') > -1) {
+      if (headersStr.indexOf('SR NUMBER') > -1 || headersStr.indexOf('NOMOR SR') > -1 || headersStr.indexOf('SR NO') > -1) {
         type = 'service_request';
         result.sheetsFound.serviceRequests = true;
-      } else if (headersStr.indexOf('FI NUMBER') > -1 || headersStr.indexOf('NOMOR FI') > -1) {
+      } else if (headersStr.indexOf('FI NUMBER') > -1 || headersStr.indexOf('NOMOR FI') > -1 || headersStr.indexOf('FI NO') > -1) {
         type = 'failure_information';
         result.sheetsFound.failureInformations = true;
-      } else if (headersStr.indexOf('NAMA MEKANIK') > -1 || headersStr.indexOf('MECHANIC NAME') > -1) {
+      } else if (headersStr.indexOf('NAMA MEKANIK') > -1 || headersStr.indexOf('MECHANIC NAME') > -1 || headersStr.indexOf('KPI') > -1) {
         type = 'surat_tugas';
         result.sheetsFound.suratTugas = true;
       }
       
       if (type === 'unknown') continue;
+      
+      // Found the right sheet, but maybe it only has headers
+      if (rows.length <= 1) continue;
 
       for (var i = 1; i < rows.length; i++) {
         var row = rows[i];
