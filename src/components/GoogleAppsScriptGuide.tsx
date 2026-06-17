@@ -373,23 +373,25 @@ function doPost(e) {
         // Pembandingan ID (Nomor SR atau Nama Mekanik)
         if (rows[r][idColIdx] == payload[idKey]) {
           if (action === 'delete') {
-            sheet.deleteRow(r + 1);
+            // HANYA bersihkan range kolom milik tipe ini agar tidak merusak data module lain di baris yang sama
+            sheet.getRange(r + 1, colStart, 1, colWidth).clearContent();
           } else if (action === 'update') {
-            for (var j = 0; j < headers.length; j++) {
-              var headerName = headers[j];
-              var key = mapHeaderToKey(headerName, type);
-              var newVal = undefined;
+            var updateRange = sheet.getRange(r + 1, colStart, 1, colWidth);
+            var rowVals = updateRange.getValues()[0];
+            
+            for (var j = 0; j < colWidth; j++) {
+              var actualColIdx = colStart + j;
+              var hName = headers[actualColIdx - 1];
+              if (!hName) continue;
               
+              var key = mapHeaderToKey(hName, type);
               if (key && payload[key] !== undefined) {
-                newVal = payload[key];
-              } else if (payload[headerName] !== undefined) {
-                newVal = payload[headerName];
-              }
-              
-              if (newVal !== undefined) {
-                sheet.getRange(r + 1, j + 1).setValue(newVal);
+                rowVals[j] = payload[key];
+              } else if (payload[hName] !== undefined) {
+                rowVals[j] = payload[hName];
               }
             }
+            updateRange.setValues([rowVals]);
           }
           return successResponse();
         }
