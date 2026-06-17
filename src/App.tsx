@@ -25,7 +25,8 @@ import {
   Layers,
   Activity,
   UserCheck,
-  ArrowDownToLine
+  ArrowDownToLine,
+  ExternalLink
 } from 'lucide-react';
 
 import { ServiceRequest, SuratTugas, FailureInformation } from './types';
@@ -425,30 +426,30 @@ export default function App() {
         const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
           ...item, // Preserve all original spreadsheet columns
           id: item.id || (idx + 1).toString(),
-          customerName: item.customerName || item['Customer Name'] || '',
-          srNumber: item.srNumber || item['Nomor SR'] || '',
-          woNumber: item.woNumber || item['Nomor WO'] || '',
-          uc3Number: item.uc3Number || item['Nomor UC3'] || '',
-          uc3Status: item.uc3Status || item['Status UC3'] || 'None',
-          srDate: formatDateString(item.srDate || item['Tanggal SR'] || ''),
-          srAging: parseInt(item.srAging || item['SR Aging']) || 0,
-          planningDate: formatDateString(item.planningDate || item['Jadwal Planning'] || ''),
-          actionDate: formatDateString(item.actionDate || item['Tanggal Action'] || ''),
-          rfuDate: formatDateString(item.rfuDate || item['Tanggal RFU'] || ''),
-          unitCondition: item.unitCondition || item['Kondisi Alat'] || 'Running Without Trouble',
-          snUnit: item.snUnit || item['SN'] || '',
-          model: item.model || item['Model'] || 'HX210HD',
-          issueDescription: item.issueDescription || item['Deskripsi Masalah'] || item['Isi / Deskripsi Masalah'] || '',
-          location: item.location || item['Lokasi'] || item['Lokasi / Sektor'] || '',
-          labour1: item.labour1 || item['Mekanik 1'] || '',
-          labour2: item.labour2 || item['Mekanik 2'] || '',
-          labour3: item.labour3 || item['Mekanik 3'] || '',
-          labour4: item.labour4 || item['Mekanik 4'] || '',
-          labour5: item.labour5 || item['Mekanik 5'] || '',
-          labour6: item.labour6 || item['Mekanik 6'] || '',
-          status: item.status || item['Status Pekerjaan'] || 'Inprogress',
-          leadJobDescription: item.leadJobDescription || item['Deskripsi Pekerjaan'] || item['LEAD JOB DESCRIPTION'] || '',
-          ticketId: item.ticketId || item['ID Ticket'] || '',
+          customerName: item.customerName || item['CUSTOMER NAME'] || item['Customer Name'] || '',
+          srNumber: item.srNumber || item['NOMOR SR'] || item['Nomor SR'] || '',
+          woNumber: item.woNumber || item['NOMOR WO'] || item['Nomor WO'] || '',
+          uc3Number: item.uc3Number || item['NOMOR UC3'] || item['Nomor UC3'] || '',
+          uc3Status: item.uc3Status || item['STATUS UC3'] || item['Status UC3'] || 'None',
+          srDate: formatDateString(item.srDate || item['TANGGAL SR'] || item['Tanggal SR'] || ''),
+          srAging: parseInt(item.srAging || item['SR AGING'] || item['SR Aging']) || 0,
+          planningDate: formatDateString(item.planningDate || item['JADWAL PLANNING'] || item['Jadwal Planning'] || ''),
+          actionDate: formatDateString(item.actionDate || item['TANGGAL ACTION'] || item['Tanggal Action'] || ''),
+          rfuDate: formatDateString(item.rfuDate || item['TANGGAL RFU'] || item['Tanggal RFU'] || ''),
+          unitCondition: item.unitCondition || item['KONDISI ALAT'] || item['Kondisi Alat'] || 'Running Without Trouble',
+          snUnit: item.snUnit || item['S/N'] || item['SN'] || '',
+          model: item.model || item['MODEL'] || item['Model'] || 'HX210HD',
+          issueDescription: item.issueDescription || item['DESKRIPSI MASALAH'] || item['Deskripsi Masalah'] || item['Isi / Deskripsi Masalah'] || '',
+          location: item.location || item['LOKASI / SEKTOR'] || item['SEKTOR / LOKASI'] || item['Lokasi'] || item['Lokasi / Sektor'] || '',
+          labour1: item.labour1 || item['MEKANIK 1'] || item['Mekanik 1'] || '',
+          labour2: item.labour2 || item['MEKANIK 2'] || item['Mekanik 2'] || '',
+          labour3: item.labour3 || item['MEKANIK 3'] || item['Mekanik 3'] || '',
+          labour4: item.labour4 || item['MEKANIK 4'] || item['Mekanik 4'] || '',
+          labour5: item.labour5 || item['MEKANIK 5'] || item['Mekanik 5'] || '',
+          labour6: item.labour6 || item['MEKANIK 6'] || item['Mekanik 6'] || '',
+          status: item.status || item['STATUS KERJA'] || item['Status Pekerjaan'] || 'Inprogress',
+          leadJobDescription: item.leadJobDescription || item['LAPORAN AKTIVITAS'] || item['Deskripsi Pekerjaan'] || item['LEAD JOB DESCRIPTION'] || '',
+          ticketId: item.ticketId || item['ID TICKET'] || item['ID Ticket'] || '',
           aksi: item.aksi || '',
           // New fields for A-AJ
           component: item.component || item['Component'] || item['Komponen'] || '',
@@ -762,6 +763,17 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
               </button>
             )}
+
+            {/* Buka Google Sheet Button */}
+            <a
+              href="https://docs.google.com/spreadsheets/d/1k1ydWIDJGOzwQhNh-sfc5odySSqudJtX_SGWnisl2yY/edit"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-semibold tracking-wider uppercase transition cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Buka Google Sheet</span>
+            </a>
 
             {/* Tambah Request / Job Button */}
             <button
@@ -1166,7 +1178,7 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                                 <td className="px-2.5 py-1 text-zinc-300 font-semibold text-xs text-blue-400/90">
                                   <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-blue-400 bg-blue-500/5 px-1.5 py-0.2 rounded border border-blue-500/10 whitespace-normal">
                                     <span className="w-1 h-1 rounded-full bg-blue-500" />
-                                    {req.location || 'Batam'}
+                                    {req.location || '-'}
                                   </span>
                                 </td>
 
@@ -1322,42 +1334,7 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                                         </div>
                                       </div>
 
-                                      <div className="space-y-2">
-                                        <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                          Informasi Tambahan & Part:
-                                        </h4>
-                                        <div className="space-y-1.5 text-xs text-zinc-350 py-1 flex flex-col font-mono">
-                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
-                                            <span className="text-zinc-500 font-semibold">Komponen:</span>
-                                            <span className="text-zinc-200">{req.component || '-'}</span>
-                                          </div>
-                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
-                                            <span className="text-zinc-500 font-semibold">Part Number:</span>
-                                            <span className="text-blue-300">{req.partNumber || '-'}</span>
-                                          </div>
-                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
-                                            <span className="text-zinc-500 font-semibold">Qty:</span>
-                                            <span className="text-zinc-200">{req.qty || 0}</span>
-                                          </div>
-                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1">
-                                            <span className="text-zinc-500 font-semibold">Price:</span>
-                                            <span className="text-zinc-200">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(req.price || 0)}</span>
-                                          </div>
-                                          <div className="flex justify-between border-b border-zinc-800/60 pb-1 font-bold">
-                                            <span className="text-zinc-500 font-semibold">Total Price:</span>
-                                            <span className="text-emerald-400">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(req.totalPrice || 0)}</span>
-                                          </div>
-                                          <div className="flex flex-col pt-1">
-                                            <span className="text-zinc-500 font-semibold">Remarks:</span>
-                                            <span className="text-zinc-400 text-[10px] bg-zinc-900/50 p-2 rounded mt-1 border border-zinc-800 leading-relaxed italic">{req.remarks || 'Tidak ada keterangan tambahan.'}</span>
-                                          </div>
-                                          <div className="mt-2 text-[9px] text-zinc-600 flex justify-between italic">
-                                            <span>Terakhir Update: {req.lastUpdated || '-'}</span>
-                                            <span>Oleh: {req.updatedBy || 'System'}</span>
-                                          </div>
-                                        </div>
-                                      </div>
+
 
                                       <div className="space-y-2">
                                         <h4 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">

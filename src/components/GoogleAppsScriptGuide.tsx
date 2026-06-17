@@ -182,7 +182,7 @@ function mapHeaderToKey(header, type) {
     if (h === "snunit" || h === "sn" || h === "serialnumber") return "snUnit";
     if (h === "model" || h === "tipe") return "model";
     if (h === "issuedescription" || h === "deskripsimasalah" || h === "masalah" || h === "isideskripsimasalah") return "issueDescription";
-    if (h === "location" || h === "lokasi" || h === "sektor") return "location";
+    if (h === "location" || h === "lokasi" || h === "sektor" || h === "lokasisektor" || h === "sektorlokasi") return "location";
     if (h === "labour1" || h === "mekanik1") return "labour1";
     if (h === "labour2" || h === "mekanik2") return "labour2";
     if (h === "labour3" || h === "mekanik3") return "labour3";

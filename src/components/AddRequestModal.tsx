@@ -333,7 +333,7 @@ export default function AddRequestModal({ isOpen, onClose, onSave, editData, uni
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Lokasi / Sektor</label>
+              <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1.5 tracking-widest">Sektor / Lokasi</label>
               <input
                 type="text"
                 name="location"
