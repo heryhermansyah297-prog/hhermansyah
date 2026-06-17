@@ -733,12 +733,13 @@ export default function SuratTugasTrackerView({ requests }: SuratTugasTrackerVie
                 <th className="px-3 py-3 text-center w-20">HARI ST</th>
                 <th className="px-3 py-3 w-[200px]">PENCAPAIAN KPI (SENIN-JUMAT)</th>
                 <th className="px-3 py-3 text-right w-24">TINDAKAN</th>
+                <th className="px-3 py-3 text-right w-20">AKSI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#27272A]/70 text-[11px] font-medium text-zinc-200">
               {filteredMechanics.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-zinc-500 text-xs font-semibold">
+                  <td colSpan={10} className="px-4 py-10 text-center text-zinc-500 text-xs font-semibold">
                     Tidak ada record mekanik dalam Surat Tugas Tracker yang cocok dengan penyaringan pencarian.
                   </td>
                 </tr>

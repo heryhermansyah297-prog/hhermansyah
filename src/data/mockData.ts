@@ -159,6 +159,28 @@ export const INITIAL_SERVICE_REQUESTS: ServiceRequest[] = [
     leadJobDescription: 'Prepare Tools, Engine Running tested and found seal breather leaking rating B, Reposition.'
   },
   {
+    id: '8.5',
+    customerName: 'PT SINAR REZEKI',
+    srNumber: 'SR/PKY/06/26/0188',
+    woNumber: 'UC3/PKY/06/26',
+    uc3Number: '',
+    uc3Status: 'Inprogress',
+    srDate: '2026-06-15',
+    srAging: 0,
+    planningDate: '2026-06-18',
+    actionDate: '',
+    rfuDate: '',
+    unitCondition: 'Running With Trouble',
+    snUnit: 'HJSCE6G9JE0034015',
+    model: 'HX210HD',
+    issueDescription: 'Hydraulic low pressure intermittent',
+    location: 'Tukun Kapuas',
+    labour1: 'Agus Saputra',
+    labour2: 'Cahya Deni',
+    status: 'Inprogress',
+    leadJobDescription: 'Monitoring hydraulic pressure sensor data. Unit still operates but with limited speed.'
+  },
+  {
     id: '8',
     srNumber: 'SR/PKY/05/26/0156',
     woNumber: '',

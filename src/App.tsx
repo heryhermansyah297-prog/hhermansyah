@@ -242,7 +242,8 @@ export default function App() {
       'Inprogress': 1,
       'Delay Labour': 2,
       'Waiting Payment Customer': 3,
-      'RFU': 4
+      'RFU': 4,
+      'Done': 5
     };
 
     return filtered.sort((a, b) => {
@@ -425,7 +426,7 @@ export default function App() {
         // Map rawData to guarantee id presence while preserving ALL other original fields
         const sanitized: ServiceRequest[] = srData.map((item: any, idx: number) => ({
           ...item, // Preserve all original spreadsheet columns
-          id: item.id || (idx + 1).toString(),
+          id: String(item.id || (idx + 1)),
           customerName: item.customerName || item['CUSTOMER NAME'] || item['Customer Name'] || '',
           srNumber: item.srNumber || item['NOMOR SR'] || item['Nomor SR'] || '',
           woNumber: item.woNumber || item['NOMOR WO'] || item['Nomor WO'] || '',
@@ -436,7 +437,17 @@ export default function App() {
           planningDate: formatDateString(item.planningDate || item['JADWAL PLANNING'] || item['Jadwal Planning'] || ''),
           actionDate: formatDateString(item.actionDate || item['TANGGAL ACTION'] || item['Tanggal Action'] || ''),
           rfuDate: formatDateString(item.rfuDate || item['TANGGAL RFU'] || item['Tanggal RFU'] || ''),
-          unitCondition: item.unitCondition || item['KONDISI ALAT'] || item['Kondisi Alat'] || 'Running Without Trouble',
+          unitCondition: (function(val) {
+            if (!val) return 'Running Without Trouble';
+            const s = String(val).trim();
+            const sl = s.toLowerCase();
+            // Order matters: check 'without trouble' before 'trouble'
+            if (sl.includes('without trouble')) return 'Running Without Trouble';
+            if (sl.includes('with trouble') || sl.includes('trouble')) return 'Running With Trouble';
+            if (sl.includes('running')) return 'Running Without Trouble';
+            if (sl.includes('breakdown')) return 'Breakdown';
+            return s;
+          })(item.unitCondition || item['KONDISI ALAT'] || item['Kondisi Alat']),
           snUnit: item.snUnit || item['S/N'] || item['SN'] || '',
           model: item.model || item['MODEL'] || item['Model'] || 'HX210HD',
           issueDescription: item.issueDescription || item['DESKRIPSI MASALAH'] || item['Deskripsi Masalah'] || item['Isi / Deskripsi Masalah'] || '',
@@ -447,7 +458,18 @@ export default function App() {
           labour4: item.labour4 || item['MEKANIK 4'] || item['Mekanik 4'] || '',
           labour5: item.labour5 || item['MEKANIK 5'] || item['Mekanik 5'] || '',
           labour6: item.labour6 || item['MEKANIK 6'] || item['Mekanik 6'] || '',
-          status: item.status || item['STATUS KERJA'] || item['Status Pekerjaan'] || 'Inprogress',
+          status: (function(val) {
+            if (val === undefined || val === null) return 'Inprogress';
+            const s = String(val).trim();
+            if (!s) return 'Inprogress';
+            const sl = s.toLowerCase();
+            if (sl.includes('inprogress') || sl.includes('in progress')) return 'Inprogress';
+            if (sl.includes('delay')) return 'Delay Labour';
+            if (sl.includes('rfu')) return 'RFU';
+            if (sl.includes('payment') || sl.includes('customer')) return 'Waiting Payment Customer';
+            if (sl.includes('done')) return 'Done';
+            return s; // Keep as is if it matches none but is not empty
+          })(item.status || item['STATUS KERJA'] || item['Status Pekerjaan'] || item['STATUS'] || item['status']),
           leadJobDescription: item.leadJobDescription || item['LAPORAN AKTIVITAS'] || item['Deskripsi Pekerjaan'] || item['LEAD JOB DESCRIPTION'] || '',
           ticketId: item.ticketId || item['ID TICKET'] || item['ID Ticket'] || '',
           aksi: item.aksi || '',
@@ -580,9 +602,18 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
   };
 
   const handleDeleteRequest = async (id: string, srNumber: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+      if (e.preventDefault) e.preventDefault();
+    }
+    
+    if (!id) {
+      console.error("Cannot delete: ID is missing");
+      return;
+    }
+
     if (window.confirm('Apakah Anda yakin ingin menghapus Service Request ini?')) {
-      const updated = requests.filter(r => r.id !== id);
+      const updated = requests.filter(r => String(r.id) !== String(id));
       saveRequestsToStateAndStorage(updated);
       
       // Push delete event to Google Apps Script
@@ -968,7 +999,8 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                     >
                       <option value="All">Semua Kondisi</option>
                       <option value="Breakdown">Breakdown (Alat Mati)</option>
-                      <option value="Running Without Trouble">Running (Tanpa Gangguan)</option>
+                      <option value="Running With Trouble">Running With Trouble (Gangguan)</option>
+                      <option value="Running Without Trouble">Running Without Trouble (Normal)</option>
                     </select>
                   </div>
 
@@ -1046,7 +1078,7 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                     <tbody className="divide-y divide-[#27272A] font-sans text-[11px]">
                       {filteredRequests.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="py-12 text-center text-zinc-500 font-normal">
+                          <td colSpan={12} className="py-12 text-center text-zinc-500 font-normal">
                              Tidak ditemukan data Service Request yang cocok dengan filter aktif.
                           </td>
                         </tr>
@@ -1155,10 +1187,15 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                                       <span className="w-1 h-1 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse" />
                                       Breakdown
                                     </span>
+                                  ) : req.unitCondition === 'Running With Trouble' ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                      <span className="w-1 h-1 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                                      Running With Trouble
+                                    </span>
                                   ) : (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                       <span className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                      Running
+                                      Running Without Trouble
                                     </span>
                                   )}
                                 </td>
@@ -1209,11 +1246,13 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                                 <td className="px-2.5 py-1">
                                   <span
                                     className={`inline-block px-1.5 py-0.2 rounded text-[8.5px] font-bold tracking-wide uppercase ${
-                                      req.status === 'Inprogress'
+                                      (req.status || '').toLowerCase() === 'inprogress'
                                         ? 'bg-blue-600/15 text-blue-400 border border-blue-500/15'
-                                        : req.status === 'Delay Labour'
+                                        : (req.status || '').toLowerCase() === 'delay labour'
                                         ? 'bg-[#fbbf24]/10 text-amber-500 border border-[#fbbf24]/15'
-                                        : req.status === 'RFU_LEAD J' || req.status === 'Done'
+                                        : (req.status || '').toLowerCase() === 'waiting part' || (req.status || '').toLowerCase() === 'waiting payment' || (req.status || '').toLowerCase().includes('waiting')
+                                        ? 'bg-orange-500/15 text-orange-400 border border-orange-500/20'
+                                        : (req.status || '').toLowerCase() === 'rfu' || (req.status || '').toLowerCase() === 'rfu_lead j' || (req.status || '').toLowerCase() === 'done'
                                         ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
                                         : 'bg-blue-500/10 text-blue-400'
                                     }`}
@@ -1227,7 +1266,8 @@ ${(!shouldUpdateServiceRequests && !shouldUpdateFailureInformations && !shouldUp
                                   <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                                     <button
                                       type="button"
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        if (e) e.stopPropagation();
                                         setEditingRequest(req);
                                         setIsAddOpen(true);
                                       }}

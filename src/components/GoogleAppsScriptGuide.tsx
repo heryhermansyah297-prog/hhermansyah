@@ -120,8 +120,10 @@ function doGet(e) {
             val = Utilities.formatDate(val, Session.getScriptTimeZone() || "GMT+7", "yyyy-MM-dd");
           }
 
-          // SR Extract
-          if (supportsSR) {
+          var colIdx = j + 1; // 1-based index
+
+          // SR Extract (A-X)
+          if (supportsSR && colIdx <= 24) {
             var keySR = mapHeaderToKey(header, 'service_request');
             if (keySR) {
               itemSR[keySR] = val;
@@ -129,8 +131,8 @@ function doGet(e) {
             }
           }
           
-          // FI Extract
-          if (supportsFI) {
+          // FI Extract (Y-AI)
+          if (supportsFI && colIdx >= 25 && colIdx <= 35) {
             var keyFI = mapHeaderToKey(header, 'failure_information');
             if (keyFI) {
               itemFI[keyFI] = val;
@@ -138,8 +140,8 @@ function doGet(e) {
             }
           }
           
-          // ST Extract
-          if (supportsST) {
+          // ST Extract (AJ-AQ)
+          if (supportsST && colIdx >= 36 && colIdx <= 43) {
             var keyST = mapHeaderToKey(header, 'surat_tugas');
             if (keyST) {
               itemST[keyST] = val;
@@ -263,6 +265,19 @@ function doPost(e) {
     var rows = sheet.getDataRange().getValues();
     var headers = rows[0].map(function(h) { return h.toString().trim(); });
 
+    // Identifikasi range kolom berdasarkan tipe
+    var getBoundaries = function(type) {
+      if (type === 'service_request') return { start: 1, end: 24 }; // A-X
+      if (type === 'failure_information') return { start: 25, end: 35 }; // Y-AI
+      if (type === 'surat_tugas') return { start: 36, end: 43 }; // AJ-AQ
+      return { start: 1, end: headers.length };
+    };
+
+    var boundaries = getBoundaries(type);
+    var colStart = boundaries.start;
+    var colEnd = Math.min(boundaries.end, headers.length);
+    var colWidth = (colEnd - colStart) + 1;
+
     if (action === 'bulk_replace') {
       if (!payload || !Array.isArray(payload)) return errorResponse("Payload tidak valid untuk bulk_replace.");
       
@@ -301,19 +316,6 @@ function doPost(e) {
       }
       return successResponse();
     }
-
-    // Identifikasi range kolom berdasarkan tipe
-    var getBoundaries = function(type) {
-      if (type === 'service_request') return { start: 1, end: 24 }; // A-X
-      if (type === 'failure_information') return { start: 25, end: 35 }; // Y-AI
-      if (type === 'surat_tugas') return { start: 36, end: 43 }; // AJ-AQ
-      return { start: 1, end: headers.length };
-    };
-
-    var boundaries = getBoundaries(type);
-    var colStart = boundaries.start;
-    var colEnd = Math.min(boundaries.end, headers.length);
-    var colWidth = (colEnd - colStart) + 1;
 
     // Operasi per record (Add/Update/Delete)
     var findColIdx = function(keyName) {
