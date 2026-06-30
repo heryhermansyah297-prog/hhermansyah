@@ -211,16 +211,16 @@ export default function App() {
     const filtered = requests.filter(req => {
       // 1. Search Query Match
       const matchesSearch = 
-        (req.srNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.snUnit || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.issueDescription || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.location || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.labour1 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.labour2 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.labour3 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.labour4 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.labour5 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.labour6 || '').toLowerCase().includes(searchQuery.toLowerCase());
+        String(req.srNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.snUnit || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.issueDescription || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.location || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.labour1 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.labour2 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.labour3 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.labour4 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.labour5 || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(req.labour6 || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       // 2. Condition Match
       const matchesCondition = filterCondition === 'All' || req.unitCondition === filterCondition;
